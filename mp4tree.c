@@ -94,6 +94,14 @@ get_u64(const uint8_t * p)
             (uint64_t) p[7];
 }
 
+static const char *
+get_pascal_string(const uint8_t * p)
+{
+    uint16_t length = p[0];
+    (void) length;
+    return (char *)p + 1;
+}
+
 static uint8_t
 get_bit(const uint8_t * p, int n)
 {
@@ -430,7 +438,6 @@ mp4tree_box_mdat_hevc_nal_print(
     }
 }
 
-
 static void
 mp4tree_box_mdat_hevc_print(
     const uint8_t * p,
@@ -449,7 +456,6 @@ mp4tree_box_mdat_hevc_print(
         mp4tree_box_mdat_hevc_nal_print(p, nal_length, depth + 1);
         p += nal_length;
     }
-
 }
 
 static void
@@ -611,7 +617,7 @@ mp4tree_box_uuid_print(
     return mp4tree_hexdump(p, len, depth);
 }
 
-
+#if 0
 static void
 mp4tree_box_stsd_avc1_print(
     const uint8_t * p,
@@ -699,12 +705,16 @@ mp4tree_box_stsd_avc1_print(
     mp4tree_hexdump(p, len, depth);
 }
 
+#endif
+
 static void
 mp4tree_box_stsd_avcC_print(
     const uint8_t * p,
     size_t          len,
     int             depth)
 {
+    mp4tree_hexdump(p, len, depth);
+    mdat_printer = mp4tree_box_mdat_h264_print;
 }
 
 
@@ -714,7 +724,10 @@ mp4tree_box_stsd_hvcC_print(
     size_t          len,
     int             depth)
 {
+    mp4tree_hexdump(p, len, depth);
+    mdat_printer = mp4tree_box_mdat_hevc_print;
 }
+
 
 static void
 mp4tree_box_ctab_print(
@@ -728,6 +741,8 @@ mp4tree_box_ctab_print(
 }
 
 
+
+#if 0
 
 static void
 mp4tree_box_stsd_hev1_print(
@@ -824,6 +839,146 @@ mp4tree_box_stsd_hev1_print(
 
     mdat_printer = mp4tree_box_mdat_hevc_print;
 }
+#endif
+
+
+static void
+mp4tree_box_btrt_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    printf("%s  Version:                 %u\n",indent(depth, 0), p[0]);
+    mp4tree_hexdump(p, len, depth);
+
+}
+
+static void
+mp4tree_box_frma_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    printf("%s  Data Format: %c%c%c%c\n",indent(depth, 0), p[0], p[1], p[2], p[3]);
+}
+
+static void
+mp4tree_box_schm_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    uint32_t        flags       = get_u24(p+1);
+
+    printf("%s  Version:       %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:         0x%.6x\n", indent(depth, 0), flags);
+
+    printf("%s  Scheme Type:    %c%c%c%c\n",indent(depth, 0), p[4], p[5], p[6], p[7]);
+    printf("%s  Scheme Version: %u\n", indent(depth, 0), get_u32(p+8));
+
+    if (flags & 0x1)
+    {
+        printf("%s  Scheme URI: TODO\n", indent(depth, 0));
+    }
+}
+
+static void
+mp4tree_box_stsd_sample_video_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    /* General sample decription */
+    printf("%s  Reserved:             %.2x%.2x%.2x%.2x%.2x%.2x\n",
+               indent(depth, 0), p[0], p[1], p[2], p[3], p[4], p[5]);
+
+    printf("%s  Data reference index: %u\n", indent(depth, 0), get_u16(p+6));
+
+    p += 8;
+
+    /* Video sample description */
+    /* Version
+       A 16-bit integer indicating the version number of the compressed data.
+       This is set to 0, unless a compressor has changed its data format.*/
+    printf("%s  Version:          %u\n", indent(depth, 0), get_u16(p));
+
+    /* Revision level
+       A 16-bit integer that must be set to 0. */
+    printf("%s  Revision level:   %u\n", indent(depth, 0), get_u16(p+2));
+
+    /* Vendor
+       A 32-bit integer that specifies the developer of the compressor that
+       generated the compressed data. Often this field contains 'appl' to
+       indicate Apple, Inc. */
+    printf("%s  Vendor:           %x\n", indent(depth, 0), get_u32(p+4));
+
+    /* Temporal quality
+       A 32-bit integer containing a value from 0 to 1023 indicating the degree
+       of temporal compression. */
+    printf("%s  Temporal Quality: %u\n", indent(depth, 0), get_u32(p+8));
+
+    /* Spatial quality
+       A 32-bit integer containing a value from 0 to 1024 indicating the degree
+       of spatial compression.*/
+    printf("%s  Spatial Quality:  %u\n", indent(depth, 0), get_u32(p+12));
+
+    /* Width
+       A 16-bit integer that specifies the width of the source image in pixels.*/
+    printf("%s  Width:            %u\n", indent(depth, 0), get_u16(p+16));
+
+    /* Height
+       A 16-bit integer that specifies the height of the source image in pixels. */
+    printf("%s  Heigth:           %u\n", indent(depth, 0), get_u16(p+18));
+
+    /* Horizontal resolution
+       A 32-bit fixed-point number containing the horizontal resolution of the
+       image in pixels per inch. */
+    printf("%s  Horizontal PPI:   %u\n", indent(depth, 0), get_u32(p+20));
+
+    /* Vertical resolution
+       A 32-bit fixed-point number containing the vertical resolution of the
+       image in pixels per inch. */
+    printf("%s  Vertical PPI:     %u\n", indent(depth, 0), get_u32(p+24));
+
+    /* Data size
+       A 32-bit integer that must be set to 0. */
+    printf("%s  Data Size:        %u\n", indent(depth, 0), get_u32(p+28));
+    /* Frame count
+       A 16-bit integer that indicates how many frames of compressed data are
+       stored in each sample. Usually set to 1. */
+    printf("%s  Frame Count:      %u\n", indent(depth, 0), get_u16(p+32));
+
+    /* Compressor name
+       A 32-byte Pascal string containing the name of the compressor that
+       created the image, such as "jpeg". */
+    printf("%s  Compressor:       %s\n", indent(depth, 0), get_pascal_string(p+34));
+
+    /* Depth
+       A 16-bit integer that indicates the pixel depth of the compressed image.
+       Values of 1, 2, 4, 8 ,16, 24, and 32 indicate the depth of color images.
+       The value 32 should be used only if the image contains an alpha channel.
+       Values of 34, 36, and 40 indicate 2-, 4-, and 8-bit grayscale,
+       respectively, for grayscale images. */
+    printf("%s  Depth:            %x\n", indent(depth, 0), get_u16(p+68));
+
+    /* Color table ID
+       A 16-bit integer that identifies which color table to use. If this
+       field is set to –1, the default color table should be used for the
+       specified depth. For all depths below 16 bits per pixel, this indicates
+       a standard Macintosh color table for the specified depth. Depths of 16,
+       24, and 32 have no color table. If the color table ID is set to 0, a
+       color table is contained within the sample description itself.
+       The color table immediately follows the color table ID field in the
+       sample description. See Color Table Atoms for a complete description of
+       a color table. */
+
+    printf("%s  Color Table ID:   %x\n", indent(depth, 0), get_u16(p+70));
+
+    mp4tree_print(p+70, len - 78, depth);
+//    mp4tree_hexdump(p+72, len - 78, depth);
+
+}
+
 
 
 static void
@@ -835,43 +990,12 @@ mp4tree_box_stsd_print(
     uint32_t        flags       = get_u24(p+1);
     const uint32_t  num_entries = get_u32(p+4);
 
- //   int             i           = 0;
+    printf("%s  Version:     %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:       0x%.6x\n", indent(depth, 0), flags);
+    printf("%s  Num Entries: %u\n", indent(depth, 0), num_entries);
 
-    printf("%s  Version:                 %u\n",indent(depth, 0), p[0]);
-    printf("%s  Flags:                   0x%.6x\n", indent(depth, 0), flags);
-    printf("%s  Num Entries:             %u\n", indent(depth, 0), num_entries);
-
-//    p += 8;
-
-    mp4tree_print(p + 8, len - 8, depth +1);
-    /*
-    for (i = 0; i < num_entries; i++)
-    {
-        mp4tree_box_func    func = NULL;
-        const uint32_t sample_desc_size = get_u32(p);
-        const uint8_t * type            = get_type(p);
-
-        printf("%s  Sample Description Size: %u\n", indent(depth, 0), sample_desc_size);
-        printf("%s  Data format:             %c%c%c%c\n", indent(depth, 0),
-                p[4], p[5], p[6], p[7]);
-        printf("%s  Reserved:                %.2x%.2x%.2x%.2x%.2x%.2x\n",
-               indent(depth, 0), p[8], p[9], p[10], p[11], p[12], p[13]);
-
-        printf("%s  Data reference index:    %u\n", indent(depth, 0), get_u16(p+14));
-        mp4tree_print(p + 16, sample_desc_size, depth +1);
-        func = mp4tree_box_printer_get(type);
-
-        mp4tree_box_print(type, sample_desc_size, depth);
-        if (func)
-        {
-            func(p+16, sample_desc_size, depth + 1);
-        }
-        else
-        {
-            mp4tree_hexdump(p + 16, sample_desc_size, depth + 1);
-        }
-    }
-*/
+    /* Print recursive boxes */
+    mp4tree_print(p + 8, len - 8, depth);
 }
 
 static void
@@ -1183,7 +1307,9 @@ mp4tree_box_printer_get(const uint8_t *p)
     {
         /* Non-null terminated 4 byte string plus function */
 
+        { "btrt", mp4tree_box_btrt_print },
         { "ctab", mp4tree_print },
+        { "frma", mp4tree_box_frma_print },
         { "ftyp", mp4tree_box_ftyp_print },
         { "moof", mp4tree_print },
         { "moov", mp4tree_print },
@@ -1199,18 +1325,22 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "minf", mp4tree_print },
         { "stbl", mp4tree_print },
         { "traf", mp4tree_print },
+        { "schm", mp4tree_box_schm_print },
         { "senc", mp4tree_box_senc_print },
         { "stsd", mp4tree_box_stsd_print },
-        { "avc1", mp4tree_box_stsd_avc1_print },
+        { "avc1", mp4tree_box_stsd_sample_video_print },
+        { "encv", mp4tree_box_stsd_sample_video_print },
         { "avcC", mp4tree_box_stsd_avcC_print },
-        { "hev1", mp4tree_box_stsd_hev1_print },
+        { "hev1", mp4tree_box_stsd_sample_video_print },
         { "hvcC", mp4tree_box_stsd_hvcC_print },
         { "stts", mp4tree_box_stts_print },
         { "ctts", mp4tree_box_ctts_print },
+        { "sinf", mp4tree_print},
         { "stsc", mp4tree_box_stsc_print },
         { "stsz", mp4tree_box_stsz_print },
         { "stco", mp4tree_box_stco_print },
         { "stss", mp4tree_box_stss_print },
+        { "tenc", mp4tree_box_stss_print },
         { "uuid", mp4tree_box_uuid_print },
         { "vmhd", mp4tree_box_vmhd_print },
         { "mdat", mp4tree_box_mdat_print },
