@@ -842,6 +842,123 @@ mp4tree_box_stsd_hev1_print(
 }
 #endif
 
+static void
+mp4tree_box_saio_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    /*
+     * aligned(8) class SampleAuxiliaryInformationOffsetsBox
+     * extends FullBox(‘saio’, version, flags)
+     * {
+     *     if (flags & 1) {
+     *         unsigned int(32) aux_info_type;
+     *         unsigned int(32) aux_info_type_parameter;
+     *     }
+     *     unsigned int(32) entry_count;
+     *     if ( version == 0 ) {
+     *         unsigned int(32) offset[ entry_count ];
+     *     }
+     *     else {
+     *         unsigned int(64) offset[ entry_count ];
+     *     }
+     * }
+     *
+     */
+    uint8_t  version = p[0];
+    uint32_t flags = get_u24(p+1);
+    uint8_t entry_count = 0;
+
+    printf("%s  Version:                  %u\n",indent(depth, 0), version);
+    printf("%s  Flags:                    0x%.6x\n", indent(depth, 0), flags);
+    p += 4;
+
+    if (flags & 1)
+    {
+        printf("%s  Aux Info Type:            %c%c%c%c\n",indent(depth, 0), p[0], p[1], p[2], p[3]);
+        printf("%s  Aux Info Type Parameter:  %u\n",indent(depth, 0), get_u32(p+4));
+        p += 8;
+    }
+
+    entry_count = get_u32(p);
+    p += 4;
+    if (version == 0)
+    {
+        int i = 0;
+
+        printf("%s  Entry     Offset\n", indent(depth, 0));
+        for (i = 0; i < entry_count; i++)
+        {
+            printf("%s  %3d:       %u\n", indent(depth, 0), i, get_u32(p));
+            p += 4;
+        }
+    }
+    else
+    {
+        int i = 0;
+
+        printf("%s  Entry     Offset\n", indent(depth, 0));
+        for (i = 0; i < entry_count; i++)
+        {
+            printf("%s  %3d:       %llu\n", indent(depth, 0), i, (long long unsigned) get_u64(p));
+            p += 8;
+        }
+    }
+}
+
+
+static void
+mp4tree_box_saiz_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    /*
+     * aligned(8) class SampleAuxiliaryInformationSizesBox
+     *  extends FullBox(‘saiz’, version = 0, flags)
+     *  {
+     *       if (flags & 1) {
+     *           unsigned int(32) aux_info_type;
+     *           unsigned int(32) aux_info_type_parameter;
+     *       }
+     *   unsigned int(8) default_sample_info_size;
+     *   unsigned int(32) sample_count;
+     *   if (default_sample_info_size == 0) {
+     *       unsigned int(8) sample_info_size[ sample_count ];
+     *   }
+     * }
+     *
+     **/
+    uint32_t flags = get_u24(p+1);
+
+    printf("%s  Version:                  %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:                    0x%.6x\n", indent(depth, 0), flags);
+    p += 4;
+    if (flags & 1)
+    {
+        printf("%s  Aux Info Type:            %c%c%c%c\n",indent(depth, 0), p[0], p[1], p[2], p[3]);
+        printf("%s  Aux Info Type Parameter:  %u\n",indent(depth, 0), get_u32(p+4));
+        p += 8;
+    }
+    uint8_t default_sample_info_size = p[0];
+    uint8_t sample_count = get_u32(p + 1);
+    printf("%s  Default Sample Info Size: %u\n",indent(depth, 0), default_sample_info_size);
+    printf("%s  Sample Count:             %u\n",indent(depth, 0), sample_count);
+
+    p += 5;
+    if (default_sample_info_size == 0)
+    {
+        int i = 0;
+
+        printf("%s  Sample     Sample Info Size\n", indent(depth, 0));
+        for (i = 0; i < sample_count; i++)
+        {
+            printf("%s  %3d:           %.2u\n", indent(depth, 0), i, p[i]);
+        }
+    }
+}
+
 
 static void
 mp4tree_box_btrt_print(
@@ -1358,6 +1475,8 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "stts", mp4tree_box_stts_print },
         { "ctts", mp4tree_box_ctts_print },
         { "sinf", mp4tree_print},
+        { "saio", mp4tree_box_saio_print },
+        { "saiz", mp4tree_box_saiz_print },
         { "stsc", mp4tree_box_stsc_print },
         { "stsz", mp4tree_box_stsz_print },
         { "stco", mp4tree_box_stco_print },
