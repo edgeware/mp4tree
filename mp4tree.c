@@ -464,55 +464,57 @@ mp4tree_box_senc_print(
     size_t          len,
     int             depth)
 {
-    const uint32_t  flags   = get_u24(p+1);
-    uint32_t        num     = 0;
+    const uint32_t  flags        = get_u24(p+1);
+    uint32_t        sample_count = get_u32(p+4);
     uint32_t        i       = 0;
-    uint8_t         iv_size = 8;
+    uint32_t        j       = 0;
 
-    printf("%s  Version:     %u\n",indent(depth, 0), p[0]);
-    printf("%s  Flags:       0x%.6x\n", indent(depth, 0), flags);
-
-    p += 4;
-    if (flags & 1)
+/*
+    aligned(8) class SampleEncryptionBox
+    extends FullBox(‘senc’, version=0, flags)
     {
-        printf("%s  AlgorithmID: 0x%.2x%.2x%.2x\n",indent(depth, 0),
-                 p[0], p[1], p[2]);
-        printf("%s  IV Sizes:       %u\n", indent(depth, 0), p[3]);
-
-        printf("%s  Key ID:\n", indent(depth, 0));
-        mp4tree_hexdump(p+4, 16, depth);
-        p += 20;
-    }
-
-    num = get_u32(p);
-    p  += 4;
-
-    printf("%s  Num Entries: %u\n", indent(depth, 0), num);
-
-    printf("%s  Entry           IV             Entries  Clear  Encrypted\n",
-            indent(depth, 0));
-
-    for (i = 0; i < num; i++)
-    {
-        if (iv_size)
+        unsigned int(32) sample_count;
         {
-            printf("%s  %3u  %s",
-                   indent(depth, 0), i, mp4tree_hexstr(p, iv_size));
-            p += iv_size;
-        }
-
-        if (flags & 2)
-        {
-            uint32_t j;
-            uint16_t num_entries;
-
-            num_entries = get_u16(p);
-            p += 2;
-
-            for (j = 0; j < num_entries; j++)
+            unsigned int(Per_Sample_IV_Size*8) InitializationVector;
+            if (flags & 0x000002)
             {
-                printf("    %3u     %3u     %5u  \n",
-                       num_entries, get_u16(p), get_u32(p+2));
+                unsigned int(16) subsample_count;
+                {
+                    unsigned int(16) BytesOfClearData;
+                    unsigned int(32) BytesOfProtectedData;
+                } [ subsample_count ]
+            }
+        }[ sample_count ]
+    }
+*/
+
+    printf("%s  Version:      %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:        0x%.6x\n", indent(depth, 0), flags);
+    printf("%s  Sample Count: %u\n", indent(depth, 0), sample_count);
+
+    p += 8;
+//    printf("%s  Sample\n", indent(depth, 0), j);
+    for (i = 0; i < sample_count; i++)
+    {
+        /* Print 8 bytes IV */
+        printf("%s Sample: %3u\n",
+               indent(depth, 1), i);
+        printf("%s  IV:     %s\n",
+               indent(depth+1, 0), mp4tree_hexstr(p, 8));
+        p += 8;
+
+        if (flags & 0x000002)
+        {
+            uint32_t sub_sample_count = get_u16(p);
+            printf("%s  Subsample Count: %u\n", indent(depth+1, 0), sample_count);
+            p += 2;
+            printf("%s Subsample: %u\n", indent(depth+1, 1), j);
+            printf("%s  BytesOfClear  BytesOfProtectedData\n", indent(depth+2, 0));
+            for (j = 0; j < sub_sample_count; j++)
+            {
+                printf("%s    %3u               %5u  \n",
+                       indent(depth+2, 0), get_u16(p), get_u32(p+2));
+
                 p +=6;
             }
         }
@@ -860,6 +862,26 @@ mp4tree_box_frma_print(
     int             depth)
 {
     printf("%s  Data Format: %c%c%c%c\n",indent(depth, 0), p[0], p[1], p[2], p[3]);
+}
+
+static void
+mp4tree_box_tenc_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    uint32_t flags = get_u24(p+1);
+    uint32_t is_encrypted = get_u24(p+4);
+
+    printf("%s  Version:       %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:         0x%.6x\n", indent(depth, 0), flags);
+    printf("%s  IsEncrypted:   %u\n", indent(depth, 0), is_encrypted);
+    printf("%s  IV_Size:       %u\n", indent(depth, 0), p[7]);
+
+    printf("%s  Default Key ID %.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x\n",
+          indent(depth, 0),
+          p[8], p[9],p[10], p[11], p[12], p[13], p[14],p[15],
+          p[16], p[17], p[18],p[19], p[20], p[21], p[22], p[23]);
 }
 
 static void
@@ -1325,6 +1347,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "minf", mp4tree_print },
         { "stbl", mp4tree_print },
         { "traf", mp4tree_print },
+        { "schi", mp4tree_print },
         { "schm", mp4tree_box_schm_print },
         { "senc", mp4tree_box_senc_print },
         { "stsd", mp4tree_box_stsd_print },
@@ -1340,7 +1363,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "stsz", mp4tree_box_stsz_print },
         { "stco", mp4tree_box_stco_print },
         { "stss", mp4tree_box_stss_print },
-        { "tenc", mp4tree_box_stss_print },
+        { "tenc", mp4tree_box_tenc_print },
         { "uuid", mp4tree_box_uuid_print },
         { "vmhd", mp4tree_box_vmhd_print },
         { "mdat", mp4tree_box_mdat_print },
