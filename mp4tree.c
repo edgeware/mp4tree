@@ -506,14 +506,13 @@ mp4tree_box_senc_print(
         if (flags & 0x000002)
         {
             uint32_t sub_sample_count = get_u16(p);
-            printf("%s  Subsample Count: %u\n", indent(depth+1, 0), sample_count);
+            printf("%s  Subsample Count: %u\n", indent(depth+1, 0), sub_sample_count);
             p += 2;
-            printf("%s Subsample: %u\n", indent(depth+1, 1), j);
-            printf("%s  BytesOfClear  BytesOfProtectedData\n", indent(depth+2, 0));
+            printf("%s  Subsample  BytesOfClear  BytesOfProtectedData\n", indent(depth+2, 0));
             for (j = 0; j < sub_sample_count; j++)
             {
-                printf("%s    %3u               %5u  \n",
-                       indent(depth+2, 0), get_u16(p), get_u32(p+2));
+                printf("%s  %8d:   %3u               %5u  \n",
+                       indent(depth+2, 0), j, get_u16(p), get_u32(p+2));
 
                 p +=6;
             }
