@@ -506,14 +506,13 @@ mp4tree_box_senc_print(
         if (flags & 0x000002)
         {
             uint32_t sub_sample_count = get_u16(p);
-            printf("%s  Subsample Count: %u\n", indent(depth+1, 0), sub_sample_count);
+            printf("%s  Subsample Count: %u\n", indent(depth+1, 1), sub_sample_count);
             p += 2;
             printf("%s  Subsample  BytesOfClear  BytesOfProtectedData\n", indent(depth+2, 0));
             for (j = 0; j < sub_sample_count; j++)
             {
-                printf("%s  %8d:   %3u               %5u  \n",
+                printf("%s  %9d  %12u  %20u\n",
                        indent(depth+2, 0), j, get_u16(p), get_u32(p+2));
-
                 p +=6;
             }
         }
@@ -527,10 +526,10 @@ mp4tree_box_uuid_sample_encryption(
     size_t          len,
     int             depth)
 {
-    const uint32_t  flags   = get_u24(p+1);
-    uint32_t        num     = 0;
-    uint32_t        i       = 0;
-    uint8_t         iv_size = 8;
+    const uint32_t flags       = get_u24(p+1);
+    uint32_t       num_entries = 0;
+    uint32_t       i           = 0;
+    uint8_t        iv_size     = 8;
 
     printf("%s  Name:        Sample Encryption Box\n", indent(depth, 0));
     printf("%s  Version:     %u\n",indent(depth, 0), p[0]);
@@ -548,35 +547,39 @@ mp4tree_box_uuid_sample_encryption(
         p += 20;
     }
 
-    num = get_u32(p);
+    num_entries = get_u32(p);
     p  += 4;
 
-    printf("%s  Num Entries: %u\n", indent(depth, 0), num);
+    printf("%s  Num Entries: %u\n", indent(depth, 0), num_entries);
 
-    printf("%s  Entry           IV             Entries  Clear  Encrypted\n",
+    printf("%s  Entry           IV             Entries\n",
             indent(depth, 0));
 
-    for (i = 0; i < num; i++)
+    for (i = 0; i < num_entries; i++)
     {
         if (iv_size)
         {
-            printf("%s  %3u  %s",
-                   indent(depth, 0), i, mp4tree_hexstr(p, iv_size));
+            printf("%s Entry: %3u\n",
+                   indent(depth, 1), i);
+            printf("%s  IV:     %s\n",
+               indent(depth+1, 0), mp4tree_hexstr(p, 8));
             p += iv_size;
         }
 
         if (flags & 2)
         {
             uint32_t j;
-            uint16_t num_entries;
+            uint16_t num_sub_samples;
 
-            num_entries = get_u16(p);
+            num_sub_samples = get_u16(p);
+            printf("%s  Sub-Entries Count: %u\n", indent(depth+1, 1), num_sub_samples);
             p += 2;
 
-            for (j = 0; j < num_entries; j++)
+            printf("%s  Sub-Entry  BytesOfClear  BytesOfProtectedData\n", indent(depth+2, 0));
+            for (j = 0; j < num_sub_samples; j++)
             {
-                printf("    %3u     %3u     %5u  \n",
-                       num_entries, get_u16(p), get_u32(p+2));
+                printf("%s  %9d  %12u  %20u\n",
+                       indent(depth+2, 0), j, get_u16(p), get_u32(p+2));
                 p +=6;
             }
         }
