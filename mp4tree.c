@@ -1024,6 +1024,75 @@ mp4tree_box_schm_print(
 }
 
 static void
+mp4tree_box_stsd_sample_audio_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    /* General sample decription */
+    printf("%s  Reserved:             %.2x%.2x%.2x%.2x%.2x%.2x\n",
+               indent(depth, 0), p[0], p[1], p[2], p[3], p[4], p[5]);
+
+    printf("%s  Data reference index: %u\n", indent(depth, 0), get_u16(p+6));
+
+    p += 8;
+
+/*
+*    Version
+*    A 16-bit integer that holds the sample description version (currently 0 or 1).
+*
+*    Revision level
+*    A 16-bit integer that must be set to 0.
+*
+*    Vendor
+*    A 32-bit integer that must be set to 0.
+*
+*    Number of channels
+*    A 16-bit integer that indicates the number of sound channels
+*    used by the sound sample. Set to 1 for monaural sounds, 2 for stereo sounds.
+*    Higher numbers of channels are not supported.
+*
+*    Sample size (bits)
+*    A 16-bit integer that specifies the number of bits in each uncompressed
+*    sound sample. Allowable values are 8 or 16. Formats using more than 16
+*    bits per sample set this field to 16 and use sound description version 1.
+*
+*    Compression ID
+*    A 16-bit integer that must be set to 0 for version 0 sound descriptions.
+*    This may be set to –2 for some version 1 sound descriptions; see Redefined Sample Tables.
+*
+*    Packet size
+*    A 16-bit integer that must be set to 0.
+*
+*    Sample rate
+*    A 32-bit unsigned fixed-point number (16.16) that indicates the rate at
+*    which the sound samples were obtained. The integer portion of this number
+*    should match the media’s time scale. Many older version 0 files have values
+*    of 22254.5454 or 11127.2727, but most files have integer values,
+*    such as 44100. Sample rates greater than 2^16 are not supported.
+*
+*    Version 0 of the sound description format assumes uncompressed audio in 'raw ' or 'twos' format, 1 or 2 channels, 8 or 16 bits per sample, and a compression ID of 0.
+*
+*
+*/
+    uint16_t version = get_u16(p);
+    printf("%s  Version:              %u\n", indent(depth, 0), version);
+    printf("%s  Revision level:       %u\n", indent(depth, 0), get_u16(p+2));
+    printf("%s  Vendor:               %x\n", indent(depth, 0), get_u32(p+4));
+    printf("%s  Number of Channels:   %u\n", indent(depth, 0), get_u16(p+8));
+    printf("%s  Sample Size:          %u\n", indent(depth, 0), get_u16(p+10));
+    printf("%s  Compression ID:       %u\n", indent(depth, 0), get_u16(p+12));
+    printf("%s  Packet Size:          %u\n", indent(depth, 0), get_u16(p+14));
+    printf("%s  Sample Rate:          %u\n", indent(depth, 0), get_u32(p+16));
+
+    if (version == 0)
+    {
+        mp4tree_print(p+20, len - 28, depth);
+    }
+}
+
+
+static void
 mp4tree_box_stsd_sample_video_print(
     const uint8_t * p,
     size_t          len,
@@ -1222,6 +1291,32 @@ mp4tree_box_vmhd_print(
     printf("%s  Graphic mode: %u\n",indent(depth, 0), get_u16(p+4));
     printf("%s  Opcolor       TODO\n",indent(depth, 0));
 }
+
+static void
+mp4tree_box_tfhd_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    uint32_t        flags       = get_u24(p+1);
+
+    printf("%s  Version:     %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:       0x%.6x\n", indent(depth, 0), flags);
+
+    /*
+     *aligned(8) class TrackFragmentHeaderBox
+     *extends FullBox(tfhd, 0, tf_flags){
+     *  unsigned int(32) track_ID;
+     *  all the following are optional fields
+     *  unsigned int(64) base_data_offset;
+     *  unsigned int(32) sample_description_index;
+     *  unsigned int(32) default_sample_duration;
+     *  unsigned int(32) default_sample_size;
+     *  unsigned int(32) default_sample_flags
+     * }
+     */
+}
+
 
 static void
 mp4tree_box_tkhd_print(
@@ -1450,14 +1545,18 @@ mp4tree_box_printer_get(const uint8_t *p)
 
         { "btrt", mp4tree_box_btrt_print },
         { "ctab", mp4tree_print },
+        { "enca", mp4tree_box_stsd_sample_audio_print },
+        { "encv", mp4tree_box_stsd_sample_video_print },
         { "frma", mp4tree_box_frma_print },
         { "ftyp", mp4tree_box_ftyp_print },
         { "moof", mp4tree_print },
         { "moov", mp4tree_print },
+        { "mp4a", mp4tree_box_stsd_sample_audio_print },
         { "mvhd", mp4tree_box_mvhd_print },
         { "iods", mp4tree_box_iods_print },
         { "mdhd", mp4tree_box_mdhd_print },
         { "hdlr", mp4tree_box_hdlr_print },
+        { "tfhd", mp4tree_box_tfhd_print },
         { "trak", mp4tree_print },
         { "tkhd", mp4tree_box_tkhd_print },
         { "trun", mp4tree_box_trun_print },
@@ -1471,7 +1570,6 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "senc", mp4tree_box_senc_print },
         { "stsd", mp4tree_box_stsd_print },
         { "avc1", mp4tree_box_stsd_sample_video_print },
-        { "encv", mp4tree_box_stsd_sample_video_print },
         { "avcC", mp4tree_box_stsd_avcC_print },
         { "hev1", mp4tree_box_stsd_sample_video_print },
         { "hvcC", mp4tree_box_stsd_hvcC_print },
