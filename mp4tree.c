@@ -1228,6 +1228,15 @@ mp4tree_box_ftyp_print(
 }
 
 static void
+mp4tree_box_mfhd_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    printf("%s  Sequence Number: %u\n", indent(depth, 0), get_u32(p+4));
+}
+
+static void
 mp4tree_box_mvhd_print(
     const uint8_t * p,
     size_t          len,
@@ -1531,7 +1540,7 @@ mp4tree_box_mdat_print(
     else
     {
         /* TODO: using h264 as default for now */
-        mp4tree_box_mdat_h264_print(p, len, depth);
+        mp4tree_box_mdat_hevc_print(p, len, depth);
     }
 }
 
@@ -1549,6 +1558,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "encv", mp4tree_box_stsd_sample_video_print },
         { "frma", mp4tree_box_frma_print },
         { "ftyp", mp4tree_box_ftyp_print },
+        { "mfhd", mp4tree_box_mfhd_print },
         { "moof", mp4tree_print },
         { "moov", mp4tree_print },
         { "mp4a", mp4tree_box_stsd_sample_audio_print },
