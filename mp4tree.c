@@ -229,8 +229,15 @@ mp4tree_hexdump(
     int             depth)
 {
     size_t i;
-    size_t j;
     size_t truncated_len = 0;
+
+    // String templates to keep pretty alignment
+    const char * empty_hex = "                                                ";
+    const char * empty_txt = "                ";
+    char hex_buf[1024];
+    char txt_buf[1024];
+    sprintf(hex_buf, "%s", empty_hex);
+    sprintf(txt_buf, "%s", empty_txt);
 
     if (len > g_options.truncate)
     {
@@ -238,32 +245,45 @@ mp4tree_hexdump(
         len = g_options.truncate;
     }
 
+    size_t line_pos = 0;
     for (i = 0; i < len; i++)
     {
+        line_pos = i & 0x0f;
+
+        // Print hex output to temporary buffer...
+        char hex[4];
+        sprintf(hex, "%02x ", p[i]);
+        // ...and use strncpy to avoid null-termination
+        strncpy(&hex_buf[line_pos*3], hex, 3);
+
+        if (isprint(p[i]))
+        {
+            // A printable character
+            txt_buf[line_pos] = p[i];
+        }
+        else
+        {
+            // Replace non-printable characters with a dot.
+            txt_buf[line_pos] = '.';
+        }
+
         if (i % 16 == 0)
         {
-            if (i != 0)
-            {
-                printf("|");
-                for (j = i - 16; j < i; j++)
-                {
-                    /* Printable ASCII? */
-                    if (32 < p[j] &&  p[j] < 128)
-                        printf("%c", (char)p[j]);
-                    else
-                        printf(".");
-                }
-                printf("|");
-
-                printf("\n");
-            }
-
             printf("%s  %.4zx    ", indent(depth, 0), i);
         }
 
-        printf("%.2x ", (uint8_t)p[i]);
+        if (line_pos == 15)
+        {
+            printf("%s |%s|\n", hex_buf, txt_buf);
+            sprintf(hex_buf, "%s", empty_hex);
+            sprintf(txt_buf, "%s", empty_txt);
+        }
     }
-    printf("\n");
+
+    if (line_pos != 15)
+    {
+        printf("%s |%s|\n", hex_buf, txt_buf);
+    }
 
     if (truncated_len)
     {
