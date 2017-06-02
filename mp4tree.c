@@ -1651,6 +1651,39 @@ mp4tree_box_mdat_print(
     }
 }
 
+/* 14496-12:2015 8.8.3 */
+struct trex_flags {
+    uint32_t reserved                    :  4;
+    uint32_t is_leading                  :  2;
+    uint32_t sample_depends_on           :  2;
+    uint32_t sample_is_depended_on       :  2;
+    uint32_t sample_has_redundancy       :  2;
+    uint32_t sample_padding_value        :  3;
+    uint32_t sample_is_non_sync_sample   :  1;
+    uint32_t sample_degradation_priority : 16;
+};
+static void
+mp4tree_box_trex_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    uint32_t flags_value = get_u32(p + 16);
+    const struct trex_flags *flags = (const struct trex_flags *)&flags_value;
+
+    printf("%s  Track ID:                %u\n", indent(depth, 0), get_u32(p));
+    printf("%s  Default sample description index: %u\n", indent(depth, 0), get_u32(p + 4));
+    printf("%s  Default sample duration: %u\n", indent(depth, 0), get_u32(p + 8));
+    printf("%s  Default sample size:     %u\n", indent(depth, 0), get_u32(p + 12));
+
+    printf("%s  Is Leading:              %u\n", indent(depth, 0), flags->is_leading);
+    printf("%s  Sample Depends On:       %u\n", indent(depth, 0), flags->sample_depends_on);
+    printf("%s  Sample Is Depended On:   %u\n", indent(depth, 0), flags->sample_is_depended_on);
+    printf("%s  Sample Has Redundancy:   %u\n", indent(depth, 0), flags->sample_has_redundancy);
+    printf("%s  Sample Padding Value:    %u\n", indent(depth, 0), flags->sample_padding_value);
+    printf("%s  Sample Is Non-Sync:      %u\n", indent(depth, 0), flags->sample_is_non_sync_sample);
+    printf("%s  Sample Degradation Prio: %u\n", indent(depth, 0), flags->sample_degradation_priority);
+}
 
 static mp4tree_box_func
 mp4tree_box_printer_get(const uint8_t *p)
@@ -1706,6 +1739,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "vmhd", mp4tree_box_vmhd_print },
         { "mdat", mp4tree_box_mdat_print },
         { "mvex", mp4tree_print },
+        { "trex", mp4tree_box_trex_print },
     };
 
     int i;
