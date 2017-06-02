@@ -1238,6 +1238,43 @@ mp4tree_box_stsd_print(
     mp4tree_print(p + 8, len - 8, depth);
 }
 
+/* 14496-12:2015 12.6.3.2 */
+static void
+mp4tree_box_stpp_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    printf("%s  Reference Index: %u\n", indent(depth, 0), get_u16(p + 6));
+
+    do {
+        const uint8_t *pp = p;
+        const uint8_t *end = p + len;
+
+        pp += 8;
+        printf("%s  Namespace:       %s\n", indent(depth, 0), (const char *)pp);
+        pp += strlen((const char *)pp) + 1;
+        if (pp >= end)
+            break;
+        printf("%s  Scheme Location: %s\n", indent(depth, 0), (const char *)pp);
+        pp += strlen((const char *)pp) + 1;
+        if (pp >= end)
+            break;
+        printf("%s  Aux Mime Type:   %s\n", indent(depth, 0), (const char *)pp);
+        pp += strlen((const char *)pp) + 1;
+        if (pp >= end)
+            break;
+        printf("%s  Bitrate:         %u\n", indent(depth, 0), get_u32(pp));
+        pp += 4;
+        if (pp >= end)
+            break;
+        printf("%s  Mime:            %.*s\n", indent(depth, 0),
+               (int)(end - (pp + 8)), pp + 8);
+    } while (0);
+
+    mp4tree_hexdump(p, len, depth);
+}
+
 static void
 mp4tree_box_ftyp_print(
     const uint8_t * p,
@@ -1649,6 +1686,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "schm", mp4tree_box_schm_print },
         { "senc", mp4tree_box_senc_print },
         { "stsd", mp4tree_box_stsd_print },
+        { "stpp", mp4tree_box_stpp_print },
         { "avc1", mp4tree_box_stsd_sample_video_print },
         { "avcC", mp4tree_box_stsd_avcC_print },
         { "hev1", mp4tree_box_stsd_sample_video_print },

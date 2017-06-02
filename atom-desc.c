@@ -139,6 +139,7 @@ static const struct atom_desc atoms[] = {
 	{ "stco", "chunk offset, partial data-offset information", "ISO" },
 	{ "stdp", "sample degradation priority", "ISO" },
 	{ "sthd", "Subtitle Media Header Box", "ISO" },
+	{ "stpp", "XML Subtitle Sample Entry", "ISO 14496-12 14496-30" },
 	{ "strd", "Sub-track definition", "ISO" },
 	{ "stri", "Sub-track information", "ISO" },
 	{ "stsc", "sample-to-chunk, partial data-offset information", "ISO" },
