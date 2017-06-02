@@ -1667,6 +1667,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "uuid", mp4tree_box_uuid_print },
         { "vmhd", mp4tree_box_vmhd_print },
         { "mdat", mp4tree_box_mdat_print },
+        { "mvex", mp4tree_print },
     };
 
     int i;
