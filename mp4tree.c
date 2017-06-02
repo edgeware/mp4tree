@@ -10,6 +10,8 @@
 #include <getopt.h>
 #include <ctype.h>
 
+#include "atom-desc.h"
+
 /*
  ******************************************************************************
  *                             Defines                                        *
@@ -299,8 +301,15 @@ mp4tree_box_print(
     size_t          len,
     int             depth)
 {
+    const char *desc;
+
     printf("%s--- Length: %zu Type: %c%c%c%c\n",
-            indent(depth, 1), len, type[0], type[1], type[2], type[3]);
+            indent(depth, 1), len,
+           type[0], type[1], type[2], type[3]);
+
+    desc = get_box_desc(type);
+    if (desc)
+        printf("%s  Description: %s\n", indent(depth + 1, 0), desc);
 }
 
 
