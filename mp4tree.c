@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <ctype.h>
 
 /*
  ******************************************************************************
@@ -1546,6 +1547,46 @@ mp4tree_box_stss_print(
                         p + 8, 4, 1, num, depth);
 }
 
+/* 14496-12 8.7.7 */
+static void
+mp4tree_box_subs_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    const int num = get_u32(p+4);
+    const int version = p[0];
+    int entry, sub;
+
+    printf("%s  Version:     %u\n",indent(depth, 0), version);
+    printf("%s  Flags:       0x%.2x%.2x%.2x\n", indent(depth, 0), p[1], p[2], p[3]);
+    printf("%s  Num Entries: %u\n", indent(depth, 0), num);
+
+    p += 8;
+
+    for (entry = 0; entry < num; entry++) {
+        const int sub_count = get_u16(p + 4);
+
+        p += 6;
+        if (sub_count)
+            printf("%s      %3u      Size     Prio  Discardable\n",
+                   indent(depth, 0), entry + 1);
+        for (sub = 0; sub < sub_count; sub++) {
+            printf("%s      %3d:", indent(depth, 0), sub + 1);
+            if (version == 1) {
+                printf("   %6u", get_u32(p));
+                p += 4;
+            } else {
+                printf("   %6u", get_u16(p));
+                p += 2;
+            }
+            printf("   %6u", p[0]);
+            printf("   %6u", p[1]);
+            printf("\n");
+            p += 6;
+        }
+    }
+}
 
 static void
 mp4tree_box_mdat_print(
@@ -1612,6 +1653,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "stsz", mp4tree_box_stsz_print },
         { "stco", mp4tree_box_stco_print },
         { "stss", mp4tree_box_stss_print },
+        { "subs", mp4tree_box_subs_print },
         { "tenc", mp4tree_box_tenc_print },
         { "uuid", mp4tree_box_uuid_print },
         { "vmhd", mp4tree_box_vmhd_print },
