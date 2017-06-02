@@ -1443,8 +1443,8 @@ mp4tree_box_hdlr_print(
     printf("%s  Version:                %u\n",indent(depth, 0), p[0]);
     printf("%s  Flags:                  0x%.2x%.2x%.2x\n", indent(depth, 0), p[1], p[2], p[3]);
     printf("%s  Component type:         %u\n",indent(depth, 0), get_u32(p+4));
-    printf("%s  Component subtype:      %u\n",indent(depth, 0), get_u32(p+8));
-    printf("%s  Component manufacturer: %u\n",indent(depth, 0), get_u32(p+8));
+    printf("%s  Component subtype:      %.*s\n",indent(depth, 0), 4, p+8);
+    printf("%s  Component manufacturer: %.*s\n",indent(depth, 0), 4, p+8);
     printf("%s  Component flags:        %u\n",indent(depth, 0), get_u32(p+12));
     printf("%s  Component flags mask:   %u\n",indent(depth, 0), get_u32(p+16));
     printf("%s  Component name:         %u\n",indent(depth, 0), get_u32(p+12));
