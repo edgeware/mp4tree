@@ -10,6 +10,8 @@
 #include <getopt.h>
 #include <ctype.h>
 
+#include "atom-desc.h"
+
 /*
  ******************************************************************************
  *                             Defines                                        *
@@ -299,8 +301,15 @@ mp4tree_box_print(
     size_t          len,
     int             depth)
 {
+    const char *desc;
+
     printf("%s--- Length: %zu Type: %c%c%c%c\n",
-            indent(depth, 1), len, type[0], type[1], type[2], type[3]);
+            indent(depth, 1), len,
+           type[0], type[1], type[2], type[3]);
+
+    desc = get_box_desc(type);
+    if (desc)
+        printf("%s  Description: %s\n", indent(depth + 1, 0), desc);
 }
 
 
@@ -1229,6 +1238,43 @@ mp4tree_box_stsd_print(
     mp4tree_print(p + 8, len - 8, depth);
 }
 
+/* 14496-12:2015 12.6.3.2 */
+static void
+mp4tree_box_stpp_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    printf("%s  Reference Index: %u\n", indent(depth, 0), get_u16(p + 6));
+
+    do {
+        const uint8_t *pp = p;
+        const uint8_t *end = p + len;
+
+        pp += 8;
+        printf("%s  Namespace:       %s\n", indent(depth, 0), (const char *)pp);
+        pp += strlen((const char *)pp) + 1;
+        if (pp >= end)
+            break;
+        printf("%s  Scheme Location: %s\n", indent(depth, 0), (const char *)pp);
+        pp += strlen((const char *)pp) + 1;
+        if (pp >= end)
+            break;
+        printf("%s  Aux Mime Type:   %s\n", indent(depth, 0), (const char *)pp);
+        pp += strlen((const char *)pp) + 1;
+        if (pp >= end)
+            break;
+        printf("%s  Bitrate:         %u\n", indent(depth, 0), get_u32(pp));
+        pp += 4;
+        if (pp >= end)
+            break;
+        printf("%s  Mime:            %.*s\n", indent(depth, 0),
+               (int)(end - (pp + 8)), pp + 8);
+    } while (0);
+
+    mp4tree_hexdump(p, len, depth);
+}
+
 static void
 mp4tree_box_ftyp_print(
     const uint8_t * p,
@@ -1434,8 +1480,8 @@ mp4tree_box_hdlr_print(
     printf("%s  Version:                %u\n",indent(depth, 0), p[0]);
     printf("%s  Flags:                  0x%.2x%.2x%.2x\n", indent(depth, 0), p[1], p[2], p[3]);
     printf("%s  Component type:         %u\n",indent(depth, 0), get_u32(p+4));
-    printf("%s  Component subtype:      %u\n",indent(depth, 0), get_u32(p+8));
-    printf("%s  Component manufacturer: %u\n",indent(depth, 0), get_u32(p+8));
+    printf("%s  Component subtype:      %.*s\n",indent(depth, 0), 4, p+8);
+    printf("%s  Component manufacturer: %.*s\n",indent(depth, 0), 4, p+8);
     printf("%s  Component flags:        %u\n",indent(depth, 0), get_u32(p+12));
     printf("%s  Component flags mask:   %u\n",indent(depth, 0), get_u32(p+16));
     printf("%s  Component name:         %u\n",indent(depth, 0), get_u32(p+12));
@@ -1605,6 +1651,39 @@ mp4tree_box_mdat_print(
     }
 }
 
+/* 14496-12:2015 8.8.3 */
+struct trex_flags {
+    uint32_t reserved                    :  4;
+    uint32_t is_leading                  :  2;
+    uint32_t sample_depends_on           :  2;
+    uint32_t sample_is_depended_on       :  2;
+    uint32_t sample_has_redundancy       :  2;
+    uint32_t sample_padding_value        :  3;
+    uint32_t sample_is_non_sync_sample   :  1;
+    uint32_t sample_degradation_priority : 16;
+};
+static void
+mp4tree_box_trex_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    uint32_t flags_value = get_u32(p + 16);
+    const struct trex_flags *flags = (const struct trex_flags *)&flags_value;
+
+    printf("%s  Track ID:                %u\n", indent(depth, 0), get_u32(p));
+    printf("%s  Default sample description index: %u\n", indent(depth, 0), get_u32(p + 4));
+    printf("%s  Default sample duration: %u\n", indent(depth, 0), get_u32(p + 8));
+    printf("%s  Default sample size:     %u\n", indent(depth, 0), get_u32(p + 12));
+
+    printf("%s  Is Leading:              %u\n", indent(depth, 0), flags->is_leading);
+    printf("%s  Sample Depends On:       %u\n", indent(depth, 0), flags->sample_depends_on);
+    printf("%s  Sample Is Depended On:   %u\n", indent(depth, 0), flags->sample_is_depended_on);
+    printf("%s  Sample Has Redundancy:   %u\n", indent(depth, 0), flags->sample_has_redundancy);
+    printf("%s  Sample Padding Value:    %u\n", indent(depth, 0), flags->sample_padding_value);
+    printf("%s  Sample Is Non-Sync:      %u\n", indent(depth, 0), flags->sample_is_non_sync_sample);
+    printf("%s  Sample Degradation Prio: %u\n", indent(depth, 0), flags->sample_degradation_priority);
+}
 
 static mp4tree_box_func
 mp4tree_box_printer_get(const uint8_t *p)
@@ -1640,6 +1719,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "schm", mp4tree_box_schm_print },
         { "senc", mp4tree_box_senc_print },
         { "stsd", mp4tree_box_stsd_print },
+        { "stpp", mp4tree_box_stpp_print },
         { "avc1", mp4tree_box_stsd_sample_video_print },
         { "avcC", mp4tree_box_stsd_avcC_print },
         { "hev1", mp4tree_box_stsd_sample_video_print },
@@ -1658,6 +1738,8 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "uuid", mp4tree_box_uuid_print },
         { "vmhd", mp4tree_box_vmhd_print },
         { "mdat", mp4tree_box_mdat_print },
+        { "mvex", mp4tree_print },
+        { "trex", mp4tree_box_trex_print },
     };
 
     int i;
