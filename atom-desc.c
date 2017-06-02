@@ -177,7 +177,6 @@ static const struct atom_desc atoms[] = {
 	{ "vmhd", "video media header, overall information (video track only)", "ISO" },
 	{ "vwdi", "Multiview Scene Information", "NALu Video" },
 	{ "xml ", "XML container", "ISO" },
-	{ "xml ", "a tool by which vendors can add XML formatted information", "JPEG2000" }
 };
 
 const char *get_box_desc(const uint8_t *name)
