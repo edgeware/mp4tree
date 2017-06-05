@@ -1646,7 +1646,7 @@ mp4tree_box_subs_print(
 {
     const int num = get_u32(p+4);
     const int version = p[0];
-    int entry, sub;
+    int entry, sub, last_entry = 0;
 
     printf("%s  Version:     %u\n",indent(depth, 0), version);
     printf("%s  Flags:       0x%.2x%.2x%.2x\n", indent(depth, 0), p[1], p[2], p[3]);
@@ -1654,19 +1654,28 @@ mp4tree_box_subs_print(
 
     p += 8;
 
-    for (entry = 0; entry < num; entry++) {
+    for (entry = 0; entry < num; entry++)
+    {
+        const int delta = get_u32(p);
         const int sub_count = get_u16(p + 4);
 
         p += 6;
         if (sub_count)
+        {
+            last_entry += delta;
             printf("%s      %3u      Size     Prio  Discardable\n",
-                   indent(depth, 0), entry + 1);
-        for (sub = 0; sub < sub_count; sub++) {
+                   indent(depth, 0), last_entry);
+        }
+        for (sub = 0; sub < sub_count; sub++)
+        {
             printf("%s      %3d:", indent(depth, 0), sub + 1);
-            if (version == 1) {
+            if (version == 1)
+            {
                 printf("   %6u", get_u32(p));
                 p += 4;
-            } else {
+            }
+            else
+            {
                 printf("   %6u", get_u16(p));
                 p += 2;
             }
