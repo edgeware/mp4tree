@@ -16,3 +16,4 @@ test: $(SRCS)
 
 clean:
 	$(RM) $(TARGET)
+	$(RM) -r $(TARGET).dSYM
