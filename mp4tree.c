@@ -1935,7 +1935,7 @@ main(int argc, char **argv)
     struct      stat sb = {0};
     uint8_t *   buf     = NULL;
     int         fd      = -1;
-    size_t      len     = 0;
+    ssize_t     len     = 0;
 
     if (mp4tree_parse_options(argc, argv) < 0)
     {
