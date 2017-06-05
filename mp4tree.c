@@ -1376,6 +1376,54 @@ mp4tree_box_vmhd_print(
 }
 
 static void
+mp4tree_box_tfhd_optional_print(
+    const uint8_t * p,
+    const uint8_t * end,
+    int             depth,
+    uint32_t        flags)
+{
+    if (flags & 1)
+    {
+        if (p + 8 > end)
+            return;
+        printf("%s  Base Data Offset:        %lu\n", indent(depth, 0), get_u64(p));
+        p += 8;
+    }
+
+    if (flags & 2)
+    {
+        if (p + 4 > end)
+            return;
+        printf("%s  Sample Desc Index:       %d\n", indent(depth, 0), get_u32(p));
+        p += 4;
+    }
+
+    if (flags & 8)
+    {
+        if (p + 4 > end)
+            return;
+        printf("%s  Default Sample Duration: %d\n", indent(depth, 0), get_u32(p));
+        p += 4;
+    }
+
+    if (flags & 0x10)
+    {
+        if (p + 4 > end)
+            return;
+        printf("%s  Default Sample Size:     %d\n", indent(depth, 0), get_u32(p));
+        p += 4;
+    }
+
+    if (flags & 0x20)
+    {
+        if (p + 4 > end)
+            return;
+        printf("%s  Default Sample Flags:    0x%x\n", indent(depth, 0), get_u32(p));
+        p += 4;
+    }
+}
+
+static void
 mp4tree_box_tfhd_print(
     const uint8_t * p,
     size_t          len,
@@ -1385,19 +1433,8 @@ mp4tree_box_tfhd_print(
 
     printf("%s  Version:     %u\n",indent(depth, 0), p[0]);
     printf("%s  Flags:       0x%.6x\n", indent(depth, 0), flags);
-
-    /*
-     *aligned(8) class TrackFragmentHeaderBox
-     *extends FullBox(tfhd, 0, tf_flags){
-     *  unsigned int(32) track_ID;
-     *  all the following are optional fields
-     *  unsigned int(64) base_data_offset;
-     *  unsigned int(32) sample_description_index;
-     *  unsigned int(32) default_sample_duration;
-     *  unsigned int(32) default_sample_size;
-     *  unsigned int(32) default_sample_flags
-     * }
-     */
+    printf("%s  Track ID:   0x%d\n", indent(depth, 0), get_u32(p + 4));
+    mp4tree_box_tfhd_optional_print(p + 8, p + len, depth, flags);
 }
 
 
