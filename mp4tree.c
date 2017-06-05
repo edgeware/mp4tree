@@ -1238,6 +1238,18 @@ mp4tree_box_stsd_print(
     mp4tree_print(p + 8, len - 8, depth);
 }
 
+/* Mime box according 14496-12 2015 Amd 2 */
+static void
+mp4tree_box_mime_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    printf("%s  Version and Flags: %u\n", indent(depth, 0), get_u32(p));
+    printf("%s  Content Type: %.*s\n", indent(depth, 0),
+           (int)(len - 4), (const char *)p + 4);
+}
+
 /* 14496-12:2015 12.6.3.2 */
 static void
 mp4tree_box_stpp_print(
@@ -1264,12 +1276,7 @@ mp4tree_box_stpp_print(
         pp += strlen((const char *)pp) + 1;
         if (pp >= end)
             break;
-        printf("%s  Bitrate:         %u\n", indent(depth, 0), get_u32(pp));
-        pp += 4;
-        if (pp >= end)
-            break;
-        printf("%s  Mime:            %.*s\n", indent(depth, 0),
-               (int)(end - (pp + 8)), pp + 8);
+        mp4tree_print(pp, end - pp, depth);
     } while (0);
 
     mp4tree_hexdump(p, len, depth);
@@ -1720,6 +1727,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "senc", mp4tree_box_senc_print },
         { "stsd", mp4tree_box_stsd_print },
         { "stpp", mp4tree_box_stpp_print },
+        { "mime", mp4tree_box_mime_print },
         { "avc1", mp4tree_box_stsd_sample_video_print },
         { "avcC", mp4tree_box_stsd_avcC_print },
         { "hev1", mp4tree_box_stsd_sample_video_print },
