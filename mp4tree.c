@@ -1705,6 +1705,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "encv", mp4tree_box_stsd_sample_video_print },
         { "frma", mp4tree_box_frma_print },
         { "ftyp", mp4tree_box_ftyp_print },
+        { "styp", mp4tree_box_ftyp_print },
         { "mfhd", mp4tree_box_mfhd_print },
         { "moof", mp4tree_print },
         { "moov", mp4tree_print },
