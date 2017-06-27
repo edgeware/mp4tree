@@ -353,11 +353,11 @@ mp4tree_box_mdat_h264_nal_print(
             break;
         case 7:
             typestr = "SPS";
-            hexdump= true;
+            hexdump = true;
             break;
         case 8:
             typestr = "PPS";
-            hexdump= true;
+            hexdump = true;
             break;
         case 9:
             typestr = "AUD";
