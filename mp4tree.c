@@ -334,11 +334,18 @@ mp4tree_box_mdat_h264_nal_print(
     switch (nal_unit_type)
     {
         case 1:
-        case 2:
-        case 3:
             typestr = "Non-IDR";
             break;
+        case 2:
+            typestr = "DPA";
+            break;
+        case 3:
+            typestr = "DPB";
+            break;
         case 4:
+            typestr = "DPC";
+            break;
+        case 5:
             typestr = "IDR";
             break;
         case 6:
@@ -360,6 +367,15 @@ mp4tree_box_mdat_h264_nal_print(
             break;
         case 11:
             typestr = "End Of Stream";
+            break;
+        case 12:
+            typestr = "Filler";
+            break;
+        case 13:
+            typestr = "SPS Ext";
+            break;
+        case 19:
+            typestr = "Aux Slice";
             break;
         default:
             typestr = "Unknown";
