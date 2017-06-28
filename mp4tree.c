@@ -350,6 +350,7 @@ mp4tree_box_mdat_h264_nal_print(
             break;
         case 6:
             typestr = "SEI";
+            hexdump = true;
             break;
         case 7:
             typestr = "SPS";
