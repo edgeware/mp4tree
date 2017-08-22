@@ -633,6 +633,42 @@ mp4tree_box_uuid_sample_encryption(
     }
 }
 
+
+/**
+ * @brief Print tfrf uuid box containing fragment forward references, see
+ *        https://msdn.microsoft.com/en-us/library/ff469633.aspx
+ */
+static void
+mp4tree_box_uuid_tfrf(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    const uint32_t flags = get_u24(p+1);
+    const uint8_t  fragment_count = p[4];
+    unsigned int i = 0;
+
+    printf("%s  Name:           tfrf\n", indent(depth, 0));
+    printf("%s  Version:        %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:          0x%.6x\n", indent(depth, 0), flags);
+    printf("%s  Fragment Count: %u\n", indent(depth, 0), fragment_count);
+    printf("%s    Fragment    Time              Duration\n", indent(depth, 0));
+    for (i = 0; i < fragment_count; i++)
+    {
+        if (flags & 1)
+        {
+            printf("%s    %u           %16u  %u\n",
+                   indent(depth, 0), i, get_u32(p+5), get_u32(p+9));
+        }
+        else
+        {
+            printf("%s    %u           %16lu  %lu\n",
+                   indent(depth, 0), i, get_u64(p+5), get_u64(p+13));
+        }
+    }
+}
+
+
 static void
 mp4tree_box_uuid_print(
     const uint8_t * p,
@@ -650,6 +686,11 @@ mp4tree_box_uuid_print(
              0xa2, 0x44, 0x6c, 0x42, 0x7c, 0x64, 0x8d, 0xf4},
             mp4tree_box_uuid_sample_encryption
         },
+        {
+            {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46, 0x95,
+             0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f},
+            mp4tree_box_uuid_tfrf
+        }
         /*
         {
             {0x6d, 0x1d, 0x9b, 0x05, 0x42, 0xd5, 0x44, 0xe6,
