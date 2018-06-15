@@ -1900,24 +1900,32 @@ mp4tree_print(
         uint64_t        box_len  = get_u32(p);
         const uint8_t * box_type = get_type(p);
         const uint8_t * box_data = p + 8;
+        uint64_t        box_hdr_len = 8;
 
         if (box_len == 1)
         {
             box_len = get_u64(box_data);
-            box_data = p + 16; ;
+            box_data = p + 16;
+            box_hdr_len = 16;
         }
 
         if (mp4tree_match_filter(box_type))
         {
+            /* Print header */
             mp4tree_box_print(box_type, box_len, depth);
-            func = mp4tree_box_printer_get(box_type);
-            if (func)
+
+            /* Go deeper if possible */
+            if (box_data + box_len - box_hdr_len <= end)
             {
-                func(box_data, box_len - 8, depth + 1);
-            }
-            else
-            {
-                mp4tree_hexdump(box_data, 16, depth);
+                func = mp4tree_box_printer_get(box_type);
+                if (func)
+                {
+                    func(box_data, box_len - box_hdr_len, depth + 1);
+                }
+                else
+                {
+                    mp4tree_hexdump(box_data, 16, depth);
+                }
             }
         }
 
