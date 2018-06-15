@@ -93,6 +93,7 @@ static const struct atom_desc atoms[] = {
 	{ "mvex", "movie extends box", "ISO" },
 	{ "mvhd", "movie header, overall declarations", "ISO" },
 	{ "mvra", "Multiview Relation Attribute", "NALu Video" },
+	{ "nals", "Edgeware specific box containing NAL information" },
 	{ "nmhd", "Null media header, overall information (some tracks only)", "ISO" },
 	{ "ochd", "reserved for ObjectContentInfoStream header", "MP4v1" },
 	{ "odaf", "OMA DRM Access Unit Format", "OMA DRM 2.0" },

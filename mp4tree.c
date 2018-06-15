@@ -1495,6 +1495,45 @@ mp4tree_box_tfhd_print(
     mp4tree_box_tfhd_optional_print(p + 8, p + len, depth, flags);
 }
 
+static void
+mp4tree_box_nals_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    uint32_t        flags    = get_u24(p+1);
+    const uint32_t  samples  = get_u32(p+4);
+    uint32_t i = 0;
+
+    printf("%s  Version:      %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:        0x%.6x\n", indent(depth, 0), flags);
+    printf("%s  Sample Count: %u\n", indent(depth, 0), samples);
+    printf("%s  Samples:\n", indent(depth, 0));
+
+    p += 8;
+
+    for (i = 0; i < samples; i++)
+    {
+        uint8_t nal_count = p[0];
+        printf("%s    Sample:    %u\n", indent(depth, 0), i + 1);
+        printf("%s    NAL Count: %u\n", indent(depth, 0), nal_count);
+        printf("%s    NALs:\n", indent(depth, 0));
+        p++;
+
+        if (nal_count)
+        {
+            uint32_t j;
+            printf("%s      Type  Size\n", indent(depth, 0));
+
+            for (j = 0; j < nal_count; j++)
+            {
+                printf("%s      %2u %6u\n",  indent(depth, 0), p[0], get_u32(p+1));
+                p += 5;
+            }
+        }
+    }
+}
+
 
 static void
 mp4tree_box_tkhd_print(
@@ -1815,6 +1854,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "moov", mp4tree_print },
         { "mp4a", mp4tree_box_stsd_sample_audio_print },
         { "mvhd", mp4tree_box_mvhd_print },
+        { "nals", mp4tree_box_nals_print },
         { "iods", mp4tree_box_iods_print },
         { "mdhd", mp4tree_box_mdhd_print },
         { "hdlr", mp4tree_box_hdlr_print },
@@ -1843,6 +1883,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "saio", mp4tree_box_saio_print },
         { "saiz", mp4tree_box_saiz_print },
         { "stsc", mp4tree_box_stsc_print },
+        { "skip", mp4tree_print },
         { "stsz", mp4tree_box_stsz_print },
         { "stco", mp4tree_box_stco_print },
         { "stss", mp4tree_box_stss_print },
