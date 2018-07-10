@@ -1496,6 +1496,49 @@ mp4tree_box_tfhd_print(
 }
 
 static void
+mp4tree_box_size_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    uint32_t        flags   = get_u24(p+1);
+    const uint32_t  entries = get_u32(p+4);
+    uint32_t i = 0;
+
+    static const char * typeMap[] =
+    {
+        "HLS-TS",
+        "HLS-TS-AES-128",
+        "HLS-TS-SAMPLE-AES",
+        "HLS-PACKED-AUDIO",
+        "HLS-PACKED-AUDIO-AES-128",
+        "DASH",
+        "MSS",
+        "MDAT"
+    };
+
+    printf("%s  Version: %u\n",indent(depth, 0), p[0]);
+    printf("%s  Flags:   0x%.6x\n", indent(depth, 0), flags);
+    printf("%s  Entries: %u\n", indent(depth, 0), entries);
+    printf("%s  Sizes:   \n", indent(depth, 0));
+
+    p += 8;
+
+    for (i = 0; i < entries; i++)
+    {
+        uint8_t type = p[0];
+        uint32_t size = get_u32(p+1);
+        const char * type_str = "Unknown";
+
+        if (type < sizeof(typeMap)/sizeof(typeMap[0]))
+            type_str = typeMap[type];
+
+        printf("%s    %s (%u): %u\n", indent(depth, 0), type_str, type, size);
+        p += 5;
+    }
+}
+
+static void
 mp4tree_box_nals_print(
     const uint8_t * p,
     size_t          len,
@@ -1880,6 +1923,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "stts", mp4tree_box_stts_print },
         { "ctts", mp4tree_box_ctts_print },
         { "sinf", mp4tree_print},
+        { "size", mp4tree_box_size_print },
         { "saio", mp4tree_box_saio_print },
         { "saiz", mp4tree_box_saiz_print },
         { "stsc", mp4tree_box_stsc_print },
