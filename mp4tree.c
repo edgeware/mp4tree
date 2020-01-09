@@ -60,6 +60,9 @@ mp4tree_print(const uint8_t * p, size_t len, int depth);
 static mp4tree_box_func
 mp4tree_box_printer_get(const uint8_t *p);
 
+int
+process_file(const char * filename);
+
 /*
  ******************************************************************************
  *                             Utility functions                              *
@@ -2130,11 +2133,6 @@ mp4tree_usage_print(const char * binary)
 int
 main(int argc, char **argv)
 {
-    struct      stat sb = {0};
-    uint8_t *   buf     = NULL;
-    int         fd      = -1;
-    ssize_t     len     = 0;
-
     if (mp4tree_parse_options(argc, argv) < 0)
     {
         mp4tree_usage_print(argv[0]);
@@ -2146,10 +2144,21 @@ main(int argc, char **argv)
         return mp4tree_selftest();
     }
 
+    int status = process_file(g_options.filename);
+    return status;
 
-    printf("Reading file %s\n", g_options.filename);
+}
 
-    if (stat(g_options.filename, &sb) < 0)
+int
+process_file(const char * filename)
+{
+    uint8_t *   buf     = NULL;
+    struct stat sb      = {0};
+    int         fd      = -1;
+    ssize_t     len     = 0;
+
+    printf("Reading file %s\n", filename);
+    if (stat(filename, &sb) < 0)
     {
         perror("stat");
         exit(EXIT_FAILURE);
@@ -2163,7 +2172,7 @@ main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    fd = open(g_options.filename, 0);
+    fd = open(filename, 0);
 
     if (fd < 0)
     {
@@ -2186,12 +2195,13 @@ main(int argc, char **argv)
     if (buf != NULL)
         free(buf);
 
-    return 0;
+    return EXIT_SUCCESS;
 
 errout:
 
     if (buf != NULL)
         free(buf);
+
     return EXIT_FAILURE;
 }
 
