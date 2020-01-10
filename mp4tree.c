@@ -43,9 +43,18 @@ static struct options_struct
 {
     const char * filter;
     const char * filename;
+    const char * initseg;
     int          truncate;
     bool         selftest;
 } g_options;
+
+
+static struct mp4_data
+{
+    // Simplified - could differ per track
+    int per_sample_iv_size;
+    int constant_iv_size;
+} g_mp4_data;
 
 static mp4tree_box_func mdat_printer = NULL;
 /*
@@ -59,6 +68,9 @@ mp4tree_print(const uint8_t * p, size_t len, int depth);
 
 static mp4tree_box_func
 mp4tree_box_printer_get(const uint8_t *p);
+
+int
+process_file(const char * filename);
 
 /*
  ******************************************************************************
@@ -168,6 +180,17 @@ indent(int depth, int header)
         strcat(buf, "");
 
     return buf;
+}
+
+// Print 'num' bytes from 'buf' in hex
+void
+print_hex(const uint8_t * buf, uint32_t num)
+{
+    uint32_t pos = 0;
+    while (pos < num)
+    {
+        printf("%.2x", buf[pos++]);
+    }
 }
 
 /*
@@ -516,39 +539,40 @@ mp4tree_box_senc_print(
     uint32_t        i       = 0;
     uint32_t        j       = 0;
 
-/*
-    aligned(8) class SampleEncryptionBox
-    extends FullBox(‘senc’, version=0, flags)
-    {
-        unsigned int(32) sample_count;
-        {
-            unsigned int(Per_Sample_IV_Size*8) InitializationVector;
-            if (flags & 0x000002)
-            {
-                unsigned int(16) subsample_count;
-                {
-                    unsigned int(16) BytesOfClearData;
-                    unsigned int(32) BytesOfProtectedData;
-                } [ subsample_count ]
-            }
-        }[ sample_count ]
-    }
-*/
+    // aligned(8) class SampleEncryptionBox
+    // extends FullBox(‘senc’, version=0, flags)
+    // {
+    //     unsigned int(32) sample_count;
+    //     {
+    //         unsigned int(Per_Sample_IV_Size*8) InitializationVector;
+    //         if (flags & 0x000002)
+    //         {
+    //             unsigned int(16) subsample_count;
+    //             {
+    //                 unsigned int(16) BytesOfClearData;
+    //                 unsigned int(32) BytesOfProtectedData;
+    //             } [ subsample_count ]
+    //         }
+    //     }[ sample_count ]
+    // }
 
     printf("%s  Version:      %u\n",indent(depth, 0), p[0]);
     printf("%s  Flags:        0x%.6x\n", indent(depth, 0), flags);
     printf("%s  Sample Count: %u\n", indent(depth, 0), sample_count);
 
     p += 8;
-//    printf("%s  Sample\n", indent(depth, 0), j);
+    //    printf("%s  Sample\n", indent(depth, 0), j);
     for (i = 0; i < sample_count; i++)
     {
-        /* Print 8 bytes IV */
-        printf("%s Sample: %3u\n",
-               indent(depth, 1), i);
-        printf("%s  IV:     %s\n",
-               indent(depth+1, 0), mp4tree_hexstr(p, 8));
-        p += 8;
+        printf("%s Sample: %3u\n", indent(depth, 1), i);
+
+        uint32_t iv_len = g_mp4_data.per_sample_iv_size;
+        if (iv_len)
+        {
+            printf("%s  IV:     %s\n",
+                   indent(depth+1, 0), mp4tree_hexstr(p, iv_len));
+            p += iv_len;
+        }
 
         if (flags & 0x000002)
         {
@@ -1077,18 +1101,55 @@ mp4tree_box_tenc_print(
     size_t          len,
     int             depth)
 {
-    uint32_t flags = get_u24(p+1);
-    uint32_t is_encrypted = get_u24(p+4);
+    uint32_t pos = 0;
+    uint32_t version = p[pos++];
+    uint32_t flags = get_u24(p + pos);
+    pos += 3;
 
-    printf("%s  Version:       %u\n",indent(depth, 0), p[0]);
-    printf("%s  Flags:         0x%.6x\n", indent(depth, 0), flags);
-    printf("%s  IsEncrypted:   %u\n", indent(depth, 0), is_encrypted);
-    printf("%s  IV_Size:       %u\n", indent(depth, 0), p[7]);
+    printf("%s  Version:                    %u\n",indent(depth, 0), version);
+    printf("%s  Flags:                      0x%.6x\n", indent(depth, 0), flags);
 
-    printf("%s  Default Key ID %.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x\n",
-          indent(depth, 0),
-          p[8], p[9],p[10], p[11], p[12], p[13], p[14],p[15],
-          p[16], p[17], p[18],p[19], p[20], p[21], p[22], p[23]);
+    // One byte reserved
+    pos++;
+
+    if (version == 1)
+    {
+        uint32_t crypt_byte_block = (p[pos] & 0xf0) >> 4;
+        uint32_t skip_byte_block = p[pos] & 0x0f;
+        printf("%s  default_crypt_byte_block:   %u\n", indent(depth, 0), crypt_byte_block);
+        printf("%s  default_skip_byte_block:    %u\n", indent(depth, 0), skip_byte_block);
+    }
+    pos++;
+
+    uint32_t is_protected = p[pos++];
+    uint32_t per_sample_iv_size = p[pos++];
+    g_mp4_data.per_sample_iv_size = per_sample_iv_size;
+
+    printf("%s  default_isProtected:        %u\n", indent(depth, 0), is_protected);
+    printf("%s  default_Per_Sample_IV_Size: %u\n", indent(depth, 0), per_sample_iv_size);
+
+    printf("%s  default_KID:                ", indent(depth, 0));
+    print_hex(p + pos, 16);
+    printf("\n");
+    pos += 16;
+
+    if (per_sample_iv_size == 0)
+    {
+        uint32_t constant_iv_size = p[pos++];
+        g_mp4_data.constant_iv_size = constant_iv_size;
+
+        printf("%s  default_constant_IV_size:   %u\n", indent(depth, 0), constant_iv_size);
+        printf("%s  default_constant_IV:        ", indent(depth, 0));
+        if (constant_iv_size <= 32)
+        {
+            print_hex(p + pos, constant_iv_size);
+        }
+        else
+        {
+            printf("?");
+        }
+        printf("\n");
+    }
 }
 
 static void
@@ -2041,7 +2102,7 @@ mp4tree_parse_options(
 
     while (1)
     {
-        c = getopt_long(argc, argv, "t:f:hs",
+        c = getopt_long(argc, argv, "t:f:i:hs",
                         options, &optix);
 
         if (c == -1)
@@ -2058,6 +2119,9 @@ mp4tree_parse_options(
         case 's':
             g_options.selftest = true;
             return 0;
+        case 'i':
+            g_options.initseg = optarg;
+            break;
         case 'h':
         default:
             return -1;
@@ -2124,16 +2188,14 @@ mp4tree_usage_print(const char * binary)
     printf("  Available OPTIONs:\n");
     printf("  -t, --truncate=N          Truncate boxes larger N bytes (default N=256)\n");
     printf("  -s, --selftest            Run self test\n");
+    printf("  -i, --initseg=<path>      Also parse init segment at <path>\n");
     printf("\n");
 }
 
 int
 main(int argc, char **argv)
 {
-    struct      stat sb = {0};
-    uint8_t *   buf     = NULL;
-    int         fd      = -1;
-    ssize_t     len     = 0;
+    int status;
 
     if (mp4tree_parse_options(argc, argv) < 0)
     {
@@ -2146,10 +2208,30 @@ main(int argc, char **argv)
         return mp4tree_selftest();
     }
 
+    if (g_options.initseg)
+    {
+        status = process_file(g_options.initseg);
+        if (status != EXIT_SUCCESS)
+        {
+            fprintf(stderr, "Error parsing init segment %s\n", g_options.initseg);
+            return status;
+        }
+    }
 
-    printf("Reading file %s\n", g_options.filename);
+    status = process_file(g_options.filename);
+    return status;
+}
 
-    if (stat(g_options.filename, &sb) < 0)
+int
+process_file(const char * filename)
+{
+    uint8_t *   buf     = NULL;
+    struct stat sb      = {0};
+    int         fd      = -1;
+    ssize_t     len     = 0;
+
+    printf("Reading file %s\n", filename);
+    if (stat(filename, &sb) < 0)
     {
         perror("stat");
         exit(EXIT_FAILURE);
@@ -2163,7 +2245,7 @@ main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    fd = open(g_options.filename, 0);
+    fd = open(filename, 0);
 
     if (fd < 0)
     {
@@ -2186,12 +2268,13 @@ main(int argc, char **argv)
     if (buf != NULL)
         free(buf);
 
-    return 0;
+    return EXIT_SUCCESS;
 
 errout:
 
     if (buf != NULL)
         free(buf);
+
     return EXIT_FAILURE;
 }
 
