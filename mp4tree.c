@@ -43,6 +43,7 @@ static struct options_struct
 {
     const char * filter;
     const char * filename;
+    const char * initseg;
     int          truncate;
     bool         selftest;
 } g_options;
@@ -2044,7 +2045,7 @@ mp4tree_parse_options(
 
     while (1)
     {
-        c = getopt_long(argc, argv, "t:f:hs",
+        c = getopt_long(argc, argv, "t:f:i:hs",
                         options, &optix);
 
         if (c == -1)
@@ -2061,6 +2062,9 @@ mp4tree_parse_options(
         case 's':
             g_options.selftest = true;
             return 0;
+        case 'i':
+            g_options.initseg = optarg;
+            break;
         case 'h':
         default:
             return -1;
@@ -2127,12 +2131,15 @@ mp4tree_usage_print(const char * binary)
     printf("  Available OPTIONs:\n");
     printf("  -t, --truncate=N          Truncate boxes larger N bytes (default N=256)\n");
     printf("  -s, --selftest            Run self test\n");
+    printf("  -i, --initseg=<path>      Also parse init segment at <path>\n");
     printf("\n");
 }
 
 int
 main(int argc, char **argv)
 {
+    int status;
+
     if (mp4tree_parse_options(argc, argv) < 0)
     {
         mp4tree_usage_print(argv[0]);
@@ -2144,9 +2151,18 @@ main(int argc, char **argv)
         return mp4tree_selftest();
     }
 
-    int status = process_file(g_options.filename);
-    return status;
+    if (g_options.initseg)
+    {
+        status = process_file(g_options.initseg);
+        if (status != EXIT_SUCCESS)
+        {
+            fprintf(stderr, "Error parsing init segment %s\n", g_options.initseg);
+            return status;
+        }
+    }
 
+    status = process_file(g_options.filename);
+    return status;
 }
 
 int
