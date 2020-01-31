@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "atom-desc.h"
 
@@ -445,7 +446,7 @@ mp4tree_box_mdat_hevc_nal_print(
      *       nuh_temporal_id_plus1       u(3)
      *   }
      */
- 
+
     uint8_t type = (p[0] & 0x7e) >> 1;
     uint8_t layer_id = ((p[0] & 1) << 5) | (p[1] >> 3);
     uint8_t temporal_id_plus1 = p[1] & 0x3;
@@ -689,7 +690,7 @@ mp4tree_box_uuid_tfrf(
         }
         else
         {
-            printf("%s    %u           %16lu  %lu\n",
+            printf("%s    %u           %16"PRIu64"  %"PRIu64"\n",
                    indent(depth, 0), i, get_u64(p+5), get_u64(p+13));
         }
     }
@@ -1508,7 +1509,7 @@ mp4tree_box_tfhd_optional_print(
     {
         if (p + 8 > end)
             return;
-        printf("%s  Base Data Offset:        %lu\n", indent(depth, 0), get_u64(p));
+        printf("%s  Base Data Offset:        %"PRIu64"\n", indent(depth, 0), get_u64(p));
         p += 8;
     }
 
