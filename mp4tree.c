@@ -445,8 +445,8 @@ mp4tree_box_mdat_hevc_nal_print(
      *       nuh_temporal_id_plus1       u(3)
      *   }
      */
-
-    uint8_t type = (p[0] >> 1) & 0x3f;
+ 
+    uint8_t type = (p[0] & 0x7e) >> 1;
     uint8_t layer_id = ((p[0] & 1) << 5) | (p[1] >> 3);
     uint8_t temporal_id_plus1 = p[1] & 0x3;
 
@@ -472,6 +472,9 @@ mp4tree_box_mdat_hevc_nal_print(
         case 19:
         case 20:
             typestr = "IDR";
+            break;
+        case 21:
+            typestr = "CRA";
             break;
         case 32:
             typestr = "VPS";
