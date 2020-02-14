@@ -353,7 +353,7 @@ mp4tree_box_mdat_h264_nal_print(
     const uint8_t nal_ref_idc   = (p[0] >> 5) & 0x03;
     const uint8_t nal_unit_type = p[0] & 0x1f;
     char * typestr = NULL;
-    bool hexdump = false;
+    mp4tree_box_func print_func = NULL;
 
     switch (nal_unit_type)
     {
@@ -374,15 +374,15 @@ mp4tree_box_mdat_h264_nal_print(
             break;
         case 6:
             typestr = "SEI";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 7:
             typestr = "SPS";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 8:
             typestr = "PPS";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 9:
             typestr = "AUD";
@@ -409,9 +409,9 @@ mp4tree_box_mdat_h264_nal_print(
 
     printf("%s  nal_ref_idc:    %u\n", indent(depth, 0), nal_ref_idc);
     printf("%s  nal_unit_type:  %u (%s)\n", indent(depth, 0), nal_unit_type, typestr);
-    if (hexdump)
+    if (print_func)
     {
-        mp4tree_hexdump(p, len, depth);
+        print_func(p, len, depth);
     }
 }
 
@@ -440,7 +440,7 @@ mp4tree_box_mdat_hevc_nal_print(
 {
     /*
      *  nal_unit_header( ) {        Descriptor
-     *      forbidden_zero_bit          f(1)
+     *       forbidden_zero_bit          f(1)
      *       nal_unit_type               u(6)
      *       nuh_layer_id                u(6)
      *       nuh_temporal_id_plus1       u(3)
@@ -452,7 +452,7 @@ mp4tree_box_mdat_hevc_nal_print(
     uint8_t temporal_id_plus1 = p[1] & 0x3;
 
     char * typestr = NULL;
-    bool hexdump = false;
+    mp4tree_box_func print_func = NULL;
 
     switch (type)
     {
@@ -479,23 +479,24 @@ mp4tree_box_mdat_hevc_nal_print(
             break;
         case 32:
             typestr = "VPS";
-            hexdump= true;
+            print_func = mp4tree_hexdump;
             break;
         case 33:
             typestr = "SPS";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 34:
             typestr = "PPS";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 35:
             typestr = "AUD";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 39:
         case 40:
             typestr = "SEI";
+            print_func = mp4tree_hexdump;
             break;
         default:
             typestr = "UND";
@@ -506,9 +507,9 @@ mp4tree_box_mdat_hevc_nal_print(
     printf("%s  nal_unit_type:        %u (%s)\n", indent(depth, 0), type, typestr);
     printf("%s  nuh_layer_id:         %u\n", indent(depth, 0), layer_id);
     printf("%s  nuh_temporal_id_plus1 %u\n", indent(depth, 0), temporal_id_plus1);
-    if (hexdump)
+    if (print_func)
     {
-        mp4tree_hexdump(p, len, depth);
+        print_func(p, len, depth);
     }
 }
 
