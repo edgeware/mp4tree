@@ -4,6 +4,9 @@ TARGET = mp4tree
 
 SRCS := mp4tree.c
 SRCS += atom-desc.c
+SRCS += common.c
+SRCS += nal.c
+SRCS += sei.c
 
 $(TARGET): $(SRCS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SRCS)
