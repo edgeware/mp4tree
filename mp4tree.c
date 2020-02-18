@@ -58,9 +58,17 @@ static struct mp4_data
 } g_mp4_data;
 
 static mp4tree_box_func mdat_printer = NULL;
+
+typedef struct
+{
+    int    payload_type;
+    char * description;
+} sei_info;
+
+
 /*
  ******************************************************************************
- *                           Function definitions                             *
+ *                           Function declarations                            *
  ******************************************************************************
  */
 
@@ -72,6 +80,26 @@ mp4tree_box_printer_get(const uint8_t *p);
 
 int
 process_file(const char * filename);
+
+static uint32_t
+mp4tree_sei_payload_type(const uint8_t * p, bool is_hevc);
+
+static const char *
+mp4tree_sei_description(uint32_t payload_type, const sei_info * sei_info_list);
+
+static void
+mp4tree_print_sei(const uint8_t * p, size_t len, int depth,
+                  const sei_info * sei_infos, bool is_hevc);
+
+static void
+mp4tree_print_hevc_prefix_sei(const uint8_t * p, size_t len, int depth);
+
+static void
+mp4tree_print_hevc_suffix_sei(const uint8_t * p, size_t len, int depth);
+
+static void
+mp4tree_print_h264_sei(const uint8_t * p, size_t len, int depth);
+
 
 /*
  ******************************************************************************
@@ -353,7 +381,7 @@ mp4tree_box_mdat_h264_nal_print(
     const uint8_t nal_ref_idc   = (p[0] >> 5) & 0x03;
     const uint8_t nal_unit_type = p[0] & 0x1f;
     char * typestr = NULL;
-    bool hexdump = false;
+    mp4tree_box_func print_func = NULL;
 
     switch (nal_unit_type)
     {
@@ -374,15 +402,15 @@ mp4tree_box_mdat_h264_nal_print(
             break;
         case 6:
             typestr = "SEI";
-            hexdump = true;
+            print_func = mp4tree_print_h264_sei;
             break;
         case 7:
             typestr = "SPS";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 8:
             typestr = "PPS";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 9:
             typestr = "AUD";
@@ -407,11 +435,11 @@ mp4tree_box_mdat_h264_nal_print(
             break;
     }
 
-    printf("%s  nal_ref_idc:    %u\n", indent(depth, 0), nal_ref_idc);
-    printf("%s  nal_unit_type:  %u (%s)\n", indent(depth, 0), nal_unit_type, typestr);
-    if (hexdump)
+    printf("%s  nal_ref_idc:          %u\n", indent(depth, 0), nal_ref_idc);
+    printf("%s  nal_unit_type:        %u (%s)\n", indent(depth, 0), nal_unit_type, typestr);
+    if (print_func)
     {
-        mp4tree_hexdump(p, len, depth);
+        print_func(p, len, depth);
     }
 }
 
@@ -432,6 +460,224 @@ mp4tree_box_mdat_h264_print(
     }
 }
 
+
+/*
+ ******************************************************************************
+ *                            SEI NAL unit parsing                            *
+ ******************************************************************************
+ */
+
+/* HEVC prefix SEIs */
+sei_info hevc_prefix_seis[] =
+{
+    {0, "Buffering period"},
+    {1, "Picture timing"},
+    {2, "Pan-scan rectangle"},
+    {3, "Filler payload"},
+    {4, "User data registered by Recommendation ITU-T T.35"},
+    {5, "User data unregistered"},
+    {6, "Recovery point"},
+    {9, "Scene information"},
+    {15, "Picture snapshot"},
+    {16, "Progressive refinement segment start"},
+    {17, "Progressive refinement segment end"},
+    {19, "Film grain characteristics"},
+    {22, "Post-filter hint"},
+    {23, "Tone mapping information"},
+    {45, "Frame packing arrangement"},
+    {47, "Display orientation"},
+    {128, "Structure of pictures information"},
+    {129, "Active parameter sets"},
+    {130, "Decoding unit information"},
+    {131, "Temporal sub-layer zero index"},
+    {133, "Scalable nesting"},
+    {134, "Region refresh"},
+    {135, "No display"},
+    {136, "Time code"},
+    {137, "Mastering display colour volume"},
+    {138, "Segmented rectangular frame packing arrangement"},
+    {139, "Temporal motion-constrained tile sets"},
+    {140, "Chroma resampling filter hint"},
+    {141, "Knee function information"},
+    {142, "Colour remapping information"},
+    {143, "Deinterlace field identification"},
+    {160, "Layers not present"},
+    {161, "Inter-layer constrained tile sets"},
+    {162, "BSP nesting"},
+    {163, "BSP initial arrival time"},
+    {164, "Sub bitstream property"},
+    {165, "Alpha channel information"},
+    {166, "Overlay info"},
+    {167, "Temporal MV prediction constraints"},
+    {168, "Frame field info"},
+    {176, "3D reference displays info"},
+    {177, "Depth representation info"},
+    {178, "Multiview scene info"},
+    {179, "Multiview acquisition info"},
+    {180, "multiview view position"},
+    {181, "Alternative drpth info"},
+    {-1, NULL }
+};
+
+
+/* HEVC suffix SEIs */
+sei_info hevc_suffix_seis[] =
+{
+    {3, "Filler payload"},
+    {4, "User data registered by Recommendation ITU-T T.35"},
+    {5, "User data unregistered"},
+    {17, "Progressive refinement segment end"},
+    {22, "Post-filter hint"},
+    {132, "Decoded picture hash"},
+    {-1, NULL }
+};
+
+/* H.264 SEIs */
+sei_info h264_seis[] =
+{
+    {0, "Buffering period"},
+    {1, "Picture timing"},
+    {2, "Pan-scan rectangle"},
+    {3, "Filler payload"},
+    {4, "User data registered by Recommendation ITU-T T.35"},
+    {5, "User data unregistered"},
+    {6, "Recovery point"},
+    {7, "Decoded reference picture marking repetition"},
+    {8, "Spare picture"},
+    {9, "Scene information"},
+    {10, "Sub-sequence information"},
+    {11, "Sub-sequence layer characteristics"},
+    {12, "Sub-sequence characteristics"},
+    {13, "Full-frame freeze"},
+    {14, "Full-frame freeze release"},
+    {15, "Full-frame snapshot"},
+    {16, "Progressive refinement segment start"},
+    {17, "Progressive refinement segment end"},
+    {18, "Motion-constrained slice group set"},
+    {19, "Film grain characteristics"},
+    {20, "Deblocking filter display preference"},
+    {21, "Stereo video information"},
+    {22, "Post-filter hint"},
+    {23, "Tone mapping information"},
+    {24, "Scalability information"},
+    {25, "Sub-picture scalable layer"},
+    {26, "Non-required layer representation"},
+    {27, "Priority later information"},
+    {28, "Layers not present"},
+    {29, "Layer dependency change"},
+    {30, "Scalable nesting"},
+    {31, "Base-layer temporal HRD"},
+    {32, "Quality layer integrity check"},
+    {33, "Redundant picture property"},
+    {34, "Temporal level zero dependency representation index"},
+    {35, "Temporal level switching point"},
+    {36, "Parallel decoding information"},
+    {37, "MVC scalable nesting"},
+    {38, "View scalability information"},
+    {39, "Multi-view scene information"},
+    {40, "Multi-view acquisition information"},
+    {41, "Non-required view component"},
+    {42, "View dependency change"},
+    {43, "Operational points not present"},
+    {44, "Base view temporal HRD"},
+    {45, "Frame packing arrangement"},
+    {46, "Multi-view view position"},
+    {47, "Display orientation"},
+    {48, "MVCD scalable nesting"},
+    {49, "MVCD view scalability information"},
+    {50, "Depth-representation information"},
+    {51, "3D reference displays information"},
+    {52, "Depth timing"},
+    {53, "Depth sampling information"},
+    {54, "Constrained depth parameter set identifier"},
+    {-1, NULL }
+};
+
+
+/* Get the SEI payload type from a NAL unit buffer */
+uint32_t
+mp4tree_sei_payload_type(const uint8_t * p, bool is_hevc)
+{
+    p++;
+    if (is_hevc)
+        p++;
+
+    uint32_t payload_type = 0;
+    for ( ; *p == 0xff; p++)
+        payload_type += 255;
+
+    payload_type += *p;
+
+    return payload_type;
+}
+
+
+/* Get the SEI type description for payload_type from sei_info_list */
+const char *
+mp4tree_sei_description(uint32_t payload_type,
+                        const sei_info * sei_info_list)
+{
+    char * desc = NULL;
+    const sei_info * info = sei_info_list;
+    while (info->description != NULL)
+    {
+        if (info->payload_type == payload_type)
+        {
+            desc = info->description;
+            break;
+        }
+        info++;
+    }
+    return desc;
+}
+
+
+/* Print SEI NAL info using provided SEI info list */
+static void
+mp4tree_print_sei(const uint8_t * p, size_t len, int depth,
+                  const sei_info * sei_infos, bool is_hevc)
+{
+    uint32_t payload_type = mp4tree_sei_payload_type(p, is_hevc);
+    const char * desc = mp4tree_sei_description(payload_type, sei_infos);
+
+    printf("%s  Payload type:         %u\n",
+           indent(depth, 0), payload_type);
+
+    printf("%s  Payload description:  %s\n",
+           indent(depth, 0), desc ? desc : "Reserved");
+}
+
+
+/* Print HEVC prefix SEI NAL */
+static void
+mp4tree_print_hevc_prefix_sei(const uint8_t * p, size_t len, int depth)
+{
+    mp4tree_print_sei(p, len, depth, hevc_prefix_seis, true);
+}
+
+
+/* Print HEVC suffix SEI NAL */
+static void
+mp4tree_print_hevc_suffix_sei( const uint8_t * p, size_t len, int depth)
+{
+    mp4tree_print_sei(p, len, depth, hevc_suffix_seis, true);
+}
+
+
+/* Print H264 SEI NAL */
+static void
+mp4tree_print_h264_sei(const uint8_t * p, size_t len, int depth)
+{
+    mp4tree_print_sei(p, len, depth, h264_seis, false);
+}
+
+
+/*
+ ******************************************************************************
+ *                         General NAL unit parsing                           *
+ ******************************************************************************
+ */
+
 static void
 mp4tree_box_mdat_hevc_nal_print(
     const uint8_t * p,
@@ -440,7 +686,7 @@ mp4tree_box_mdat_hevc_nal_print(
 {
     /*
      *  nal_unit_header( ) {        Descriptor
-     *      forbidden_zero_bit          f(1)
+     *       forbidden_zero_bit          f(1)
      *       nal_unit_type               u(6)
      *       nuh_layer_id                u(6)
      *       nuh_temporal_id_plus1       u(3)
@@ -452,7 +698,7 @@ mp4tree_box_mdat_hevc_nal_print(
     uint8_t temporal_id_plus1 = p[1] & 0x3;
 
     char * typestr = NULL;
-    bool hexdump = false;
+    mp4tree_box_func print_func = NULL;
 
     switch (type)
     {
@@ -479,23 +725,27 @@ mp4tree_box_mdat_hevc_nal_print(
             break;
         case 32:
             typestr = "VPS";
-            hexdump= true;
+            print_func = mp4tree_hexdump;
             break;
         case 33:
             typestr = "SPS";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 34:
             typestr = "PPS";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 35:
             typestr = "AUD";
-            hexdump = true;
+            print_func = mp4tree_hexdump;
             break;
         case 39:
+            typestr = "PREFIX SEI";
+            print_func = mp4tree_print_hevc_prefix_sei;
+            break;
         case 40:
-            typestr = "SEI";
+            typestr = "SUFFIX SEI";
+            print_func = mp4tree_print_hevc_suffix_sei;
             break;
         default:
             typestr = "UND";
@@ -506,9 +756,9 @@ mp4tree_box_mdat_hevc_nal_print(
     printf("%s  nal_unit_type:        %u (%s)\n", indent(depth, 0), type, typestr);
     printf("%s  nuh_layer_id:         %u\n", indent(depth, 0), layer_id);
     printf("%s  nuh_temporal_id_plus1 %u\n", indent(depth, 0), temporal_id_plus1);
-    if (hexdump)
+    if (print_func)
     {
-        mp4tree_hexdump(p, len, depth);
+        print_func(p, len, depth);
     }
 }
 
