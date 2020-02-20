@@ -2,7 +2,8 @@ CC ?= gcc
 CFLAGS = -g -Wall
 TARGET = mp4tree
 
-SRCS := mp4tree.c
+SRCS := main.c
+SRCS += mp4tree.c
 SRCS += atom-desc.c
 SRCS += common.c
 SRCS += nal.c

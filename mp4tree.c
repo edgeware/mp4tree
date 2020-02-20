@@ -4,17 +4,14 @@
 #include <stdbool.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <ctype.h>
 #include <inttypes.h>
 
-#include "mp4tree.h"
 #include "common.h"
+#include "mp4tree.h"
 #include "atom-desc.h"
 #include "nal.h"
+#include "options.h"
 
 /*
  ******************************************************************************
@@ -31,10 +28,9 @@
  */
 typedef struct mp4tree_box_map_struct
 {
-    char         type[4];
-    mp4tree_box_func func;
+    char type[4];
+    mp4tree_parse_func func;
 } mp4tree_box_map_t;
-
 
 static struct mp4_data
 {
@@ -43,17 +39,7 @@ static struct mp4_data
     int constant_iv_size;
 } g_mp4_data;
 
-static mp4tree_box_func mdat_printer = NULL;
-
-static struct options_struct
-{
-    const char * filter;
-    const char * filename;
-    const char * initseg;
-    int          truncate;
-    bool         selftest;
-} g_options;
-
+static mp4tree_parse_func mdat_printer = NULL;
 
 /*
  ******************************************************************************
@@ -61,113 +47,20 @@ static struct options_struct
  ******************************************************************************
  */
 
-static void
-mp4tree_print(const uint8_t * p, size_t len, int depth);
-
-static mp4tree_box_func
+static mp4tree_parse_func
 mp4tree_box_printer_get(const uint8_t *p);
 
-int
-process_file(const char * filename);
 
 /*
  ******************************************************************************
  *                             Utility functions                              *
  ******************************************************************************
  */
-static inline uint16_t
-get_u16(const uint8_t * p)
-{
-    return (p[0] << 8) | p[1];
-}
-
-static inline uint32_t
-get_u24(const uint8_t * p)
-{
-    return (p[0] << 16) | (p[1] << 8) | p [2];
-}
-
-
-static inline uint32_t
-get_u32(const uint8_t * p)
-{
-    return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
-}
-
-static inline uint64_t
-get_u64(const uint8_t * p)
-{
-    return  ((uint64_t)p[0] << 56) |
-            ((uint64_t)p[1] << 48) |
-            ((uint64_t)p[2] << 40) |
-            ((uint64_t)p[3] << 32) |
-            ((uint64_t)p[4] << 24) |
-            ((uint64_t)p[5] << 16) |
-            ((uint64_t)p[6] << 8)  |
-            (uint64_t) p[7];
-}
-
-static const char *
-get_pascal_string(const uint8_t * p)
-{
-    uint16_t length = p[0];
-    (void) length;
-    return (char *)p + 1;
-}
-
-static uint8_t
-get_bit(const uint8_t * p, int n)
-{
-
-    return (p[n/8] & (1 << (7-(n % 8)))) ? 1 : 0;
-}
-
-static inline uint32_t
-get_exp_golomb(const uint8_t *p, uint32_t * bit)
-{
-    int      leading_zero_bits = 0;
-    int      i;
-    int      j;
-    uint32_t v = 0;
-
-    for (i = *bit; 1; i++)
-    {
-
-//        printf("bit%d %u\n", i, get_bit(p, i));
-        if (get_bit(p, i) == 0)
-            leading_zero_bits++;
-        else
-            break;
-    }
-
-    for (j = 0; j < leading_zero_bits; j++)
-    {
-//        printf("bit%d=%u ", i + j + 1, get_bit(p, i + j + 1));
-        v |= get_bit(p, i + j + 1) << (leading_zero_bits -j -1);
-//        printf("v=%x ", v);
-    }
-
-//    printf(" 0s=%d  v=%u ", leading_zero_bits, v);
-    *bit += 2 * leading_zero_bits + 1;
-//    printf("bits = %u", *bit);
-    return (1 << leading_zero_bits) - 1 + v;
-}
 
 static inline const uint8_t *
-get_type(const uint8_t * p)
+mp4tree_get_box_type(const uint8_t * p)
 {
     return p + 4;
-}
-
-// Print 'num' bytes from 'buf' in hex
-void
-print_hex(const uint8_t * buf, uint32_t num)
-{
-    uint32_t pos = 0;
-    while (pos < num)
-    {
-        printf("%.2x", buf[pos++]);
-    }
 }
 
 void
@@ -525,8 +418,8 @@ mp4tree_box_uuid_print(
 {
     struct
     {
-        const uint8_t    uuid[16];
-        mp4tree_box_func func;
+        const uint8_t uuid[16];
+        mp4tree_parse_func func;
     } uuids[] =
     {
         {
@@ -1763,7 +1656,7 @@ mp4tree_box_trex_print(
     printf("%s  Sample Degradation Prio: %u\n", indent(depth, 0), flags->sample_degradation_priority);
 }
 
-static mp4tree_box_func
+static mp4tree_parse_func
 mp4tree_box_printer_get(const uint8_t *p)
 {
     static mp4tree_box_map_t box_map[] =
@@ -1856,19 +1749,19 @@ mp4tree_match_filter(const uint8_t * box_type)
 
 
 
-static void
+void
 mp4tree_print(
     const uint8_t * p,
     size_t          len,
     int             depth)
 {
     const uint8_t *     end  = p + len;
-    mp4tree_box_func    func = NULL;
+    mp4tree_parse_func    func = NULL;
 
     while (p < end)
     {
         uint64_t        box_len  = get_u32(p);
-        const uint8_t * box_type = get_type(p);
+        const uint8_t * box_type = mp4tree_get_box_type(p);
         const uint8_t * box_data = p + 8;
         uint64_t        box_hdr_len = 8;
 
@@ -1903,66 +1796,7 @@ mp4tree_print(
     }
 }
 
-
-static int
-mp4tree_parse_options(
-    int         argc,
-    char **     argv)
-{
-    int optix = 0;
-    int c;
-    static struct option options[] =
-        {
-            {"truncate", required_argument, 0, 't'},
-            {"filter",   required_argument, 0, 'f'},
-            {"help",     0,                 0, 'h'},
-            {"selftest", 0,                 0, 's'},
-            {0,          0,                 0,  0}
-        };
-
-    /* Set default options */
-    memset(&g_options, 0, sizeof(g_options));
-    g_options.truncate = 256;
-
-    while (1)
-    {
-        c = getopt_long(argc, argv, "t:f:i:hs",
-                        options, &optix);
-
-        if (c == -1)
-            break;
-
-        switch (c)
-        {
-        case 't':
-            g_options.truncate = atoi(optarg);
-            break;
-        case 'f':
-            g_options.filter = optarg;
-            break;
-        case 's':
-            g_options.selftest = true;
-            return 0;
-        case 'i':
-            g_options.initseg = optarg;
-            break;
-        case 'h':
-        default:
-            return -1;
-        }
-    }
-
-    /* File name */
-    if (optind < argc)
-        g_options.filename = argv[optind];
-    else
-        return -1;
-
-    return 0;
-}
-
-
-static int mp4tree_selftest()
+int mp4tree_selftest()
 {
     uint32_t t1 = 0xffffffff;
     uint32_t bit = 0;
@@ -1998,107 +1832,5 @@ static int mp4tree_selftest()
         bit = 0;
     }
 
-
-
     return 0;
 }
-
-static void
-mp4tree_usage_print(const char * binary)
-{
-    printf("Description:\n");
-    printf(" This program parses and prints the content of an mp4 file.\n");
-    printf("Usage: %s [OPTION]... [FILE]\n", binary);
-    printf("  Available OPTIONs:\n");
-    printf("  -t, --truncate=N          Truncate boxes larger N bytes (default N=256)\n");
-    printf("  -s, --selftest            Run self test\n");
-    printf("  -i, --initseg=<path>      Also parse init segment at <path>\n");
-    printf("\n");
-}
-
-int
-main(int argc, char **argv)
-{
-    int status;
-
-    if (mp4tree_parse_options(argc, argv) < 0)
-    {
-        mp4tree_usage_print(argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    if (g_options.selftest)
-    {
-        return mp4tree_selftest();
-    }
-
-    if (g_options.initseg)
-    {
-        status = process_file(g_options.initseg);
-        if (status != EXIT_SUCCESS)
-        {
-            fprintf(stderr, "Error parsing init segment %s\n", g_options.initseg);
-            return status;
-        }
-    }
-
-    status = process_file(g_options.filename);
-    return status;
-}
-
-int
-process_file(const char * filename)
-{
-    uint8_t *   buf     = NULL;
-    struct stat sb      = {0};
-    int         fd      = -1;
-    ssize_t     len     = 0;
-
-    printf("Reading file %s\n", filename);
-    if (stat(filename, &sb) < 0)
-    {
-        perror("stat");
-        exit(EXIT_FAILURE);
-    }
-
-    buf = malloc(sb.st_size);
-
-    if (buf == NULL)
-    {
-        printf("Failed to allocate memory\n");
-        exit(EXIT_FAILURE);
-    }
-
-    fd = open(filename, 0);
-
-    if (fd < 0)
-    {
-        perror("open");
-        goto errout;
-    }
-
-    len = read(fd, buf, sb.st_size);
-
-    printf("Read %zd bytes \n", len);
-    if (len < 0)
-    {
-        perror("read");
-        goto errout;
-    }
-
-    printf("File Content:\n");
-    mp4tree_print(buf, len, 0);
-
-    if (buf != NULL)
-        free(buf);
-
-    return EXIT_SUCCESS;
-
-errout:
-
-    if (buf != NULL)
-        free(buf);
-
-    return EXIT_FAILURE;
-}
-

@@ -25,7 +25,7 @@ mp4tree_box_mdat_hevc_nal_print(
     uint8_t temporal_id_plus1 = p[1] & 0x3;
 
     char * typestr = NULL;
-    mp4tree_box_func print_func = NULL;
+    mp4tree_parse_func print_func = NULL;
 
     switch (type)
     {
@@ -106,7 +106,7 @@ mp4tree_sei_h264_nal_print(
     const uint8_t nal_ref_idc   = (p[0] >> 5) & 0x03;
     const uint8_t nal_unit_type = p[0] & 0x1f;
     char * typestr = NULL;
-    mp4tree_box_func print_func = NULL;
+    mp4tree_parse_func print_func = NULL;
 
     switch (nal_unit_type)
     {
