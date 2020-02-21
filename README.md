@@ -11,6 +11,7 @@ mp4tree is a simple tool that can be used to inspect mp4 files.
       Available OPTIONs:
       -t, --truncate=N          Truncate boxes larger N bytes (default N=256)
       -s, --selftest            Run self test
+      -i, --initseg=<path>      Also parse init segment at <path>
 
 # Example
     $ ./mp4tree ~/tmp/D5282976650044325.cmfv
