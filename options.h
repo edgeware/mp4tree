@@ -10,7 +10,7 @@
  ******************************************************************************
  */
 
-static struct options_struct
+struct options_struct
 {
     const char * filter;
     const char * filename;

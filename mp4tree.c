@@ -1656,6 +1656,64 @@ mp4tree_box_trex_print(
     printf("%s  Sample Degradation Prio: %u\n", indent(depth, 0), flags->sample_degradation_priority);
 }
 
+static void
+mp4tree_box_emsg_print(
+    const uint8_t * p,
+    size_t          len,
+    int             depth)
+{
+    uint32_t version = p[0];
+    const uint8_t * message_ptr = NULL;
+
+    const uint8_t * data = p + 4;
+    if (version == 0)
+    {
+        // string            scheme_id_uri;
+        // string            value;
+        // unsigned int(32)  timescale;
+        // unsigned int(32)  presentation_time_delta;
+        // unsigned int(32)  event_duration;
+        // unsigned int(32)  id;
+        printf("%s  Version:            %u\n", indent(depth, 0), version);
+        printf("%s  Note:               Parsing of emsg v0 not implemented\n", indent(depth, 0));
+        return;
+    }
+    else if (version == 1)
+    {
+        uint32_t timescale = get_u32(data);
+        data += 4;
+        uint64_t presentation_time = get_u64(data);
+        data += 8;
+        uint32_t event_duration = get_u32(data);
+        data += 4;
+        uint32_t id = get_u32(data);
+        data += 4;
+
+        // 'scheme_id_uri' and 'value' are null-terminated
+        const uint8_t * scheme_data = data;
+        data += strlen((const char*)data) + 1;
+
+        // 'value' is null-terminated
+        const uint8_t * value_data = data;
+        data += strlen((const char*)data) + 1;
+
+        message_ptr = data;
+
+        printf("%s  Version:            %u\n", indent(depth, 0), version);
+        printf("%s  Timescale:          %u\n", indent(depth, 0), timescale);
+        printf("%s  Presentation time:  %" PRIu64 "\n", indent(depth, 0), presentation_time);
+        printf("%s  Event duration:     %u\n", indent(depth, 0), event_duration);
+        printf("%s  ID:                 %u\n", indent(depth, 0), id);
+        printf("%s  Scheme ID URI:      %s\n", indent(depth, 0), scheme_data);
+        printf("%s  Value:              %s\n", indent(depth, 0), value_data);
+    }
+
+    size_t msg_bytes = len - (message_ptr - p);
+    printf("%s  Message size:       %lu\n", indent(depth, 0), msg_bytes);
+    printf("%s  Message:\n", indent(depth, 0));
+    mp4tree_hexdump(data, msg_bytes, depth);
+}
+
 static mp4tree_parse_func
 mp4tree_box_printer_get(const uint8_t *p)
 {
@@ -1716,6 +1774,7 @@ mp4tree_box_printer_get(const uint8_t *p)
         { "mdat", mp4tree_box_mdat_print },
         { "mvex", mp4tree_print },
         { "trex", mp4tree_box_trex_print },
+        { "emsg", mp4tree_box_emsg_print },
     };
 
     int i;
